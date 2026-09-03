@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useImageProject } from '../../store/useEditorStore';
 import { editorStore } from '../../store/editorStore';
 
@@ -14,6 +14,40 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
   const project = useImageProject();
   const containerRef = useRef<HTMLDivElement>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [displayedCanvasHeight, setDisplayedCanvasHeight] = useState<number>(0);
+
+  // Measure actual displayed canvas/frame height using containerRef and ResizeObserver
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateHeight = () => {
+      if (containerRef.current) {
+        const h = containerRef.current.clientHeight;
+        if (h > 0) {
+          setDisplayedCanvasHeight(h);
+        }
+      }
+    };
+
+    updateHeight();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const h = entry.contentRect.height;
+          if (h > 0) {
+            setDisplayedCanvasHeight(h);
+          }
+        }
+      });
+      ro.observe(container);
+      return () => ro.disconnect();
+    } else {
+      window.addEventListener('resize', updateHeight);
+      return () => window.removeEventListener('resize', updateHeight);
+    }
+  }, [project.canvas.aspectRatio, project.source]);
 
   if (!project.source) return null;
 
@@ -100,43 +134,59 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
         />
 
         {/* Text Layers */}
-        {project.textLayers.map((layer) => {
-          const isSelected = selectedTextId === layer.id;
+        {(() => {
+          const currentHeight =
+            displayedCanvasHeight ||
+            (containerRef.current ? containerRef.current.clientHeight : 0) ||
+            1080;
+          const previewScale = currentHeight / 1080;
 
-          // Alignment transform
-          let translateClass = '-translate-x-1/2 -translate-y-1/2';
-          if (layer.alignment === 'left') translateClass = 'translate-x-0 -translate-y-1/2';
-          if (layer.alignment === 'right') translateClass = '-translate-x-full -translate-y-1/2';
+          return project.textLayers.map((layer) => {
+            const isSelected = selectedTextId === layer.id;
 
-          return (
-            <div
-              key={layer.id}
-              onPointerDown={(e) => handlePointerDown(e, layer.id)}
-              className={`absolute cursor-move transition-shadow duration-150 px-2.5 py-1 rounded select-none ${translateClass} ${
-                isSelected
-                  ? 'ring-2 ring-indigo-500 bg-indigo-500/20 backdrop-blur-sm'
-                  : 'hover:ring-1 hover:ring-zinc-400/60'
-              }`}
-              style={{
-                left: `${layer.x}%`,
-                top: `${layer.y}%`,
-                opacity: layer.opacity,
-              }}
-            >
-              <span
+            // Alignment transform
+            let translateClass = '-translate-x-1/2 -translate-y-1/2';
+            if (layer.alignment === 'left') translateClass = 'translate-x-0 -translate-y-1/2';
+            if (layer.alignment === 'right') translateClass = '-translate-x-full -translate-y-1/2';
+
+            const displayFontSize = Math.max(1, layer.fontSize * previewScale);
+            const shadowBlur = Math.max(1, 8 * previewScale);
+            const shadowOffset = Math.max(0.5, 2 * previewScale);
+            const padX = Math.round(6 * previewScale);
+            const padY = Math.round(3 * previewScale);
+
+            return (
+              <div
+                key={layer.id}
+                onPointerDown={(e) => handlePointerDown(e, layer.id)}
+                className={`absolute cursor-move transition-shadow duration-150 rounded select-none ${translateClass} ${
+                  isSelected
+                    ? 'ring-2 ring-indigo-500 bg-indigo-500/20 backdrop-blur-sm'
+                    : 'hover:ring-1 hover:ring-zinc-400/60'
+                }`}
                 style={{
-                  fontSize: `${layer.fontSize}px`,
-                  fontWeight: layer.fontWeight,
-                  color: layer.color || '#ffffff',
-                  textShadow: '0 2px 8px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9)',
+                  left: `${layer.x}%`,
+                  top: `${layer.y}%`,
+                  opacity: layer.opacity,
+                  padding: `${padY}px ${padX}px`,
                 }}
-                className="leading-none whitespace-nowrap block"
               >
-                {layer.content}
-              </span>
-            </div>
-          );
-        })}
+                <span
+                  style={{
+                    fontSize: `${displayFontSize}px`,
+                    fontWeight: layer.fontWeight,
+                    fontFamily: 'Inter, -apple-system, sans-serif',
+                    color: layer.color || '#ffffff',
+                    textShadow: `0 ${shadowOffset}px ${shadowBlur}px rgba(0,0,0,0.8), 0 0 ${Math.max(1, 2 * previewScale)}px rgba(0,0,0,0.9)`,
+                  }}
+                  className="leading-none whitespace-nowrap block"
+                >
+                  {layer.content}
+                </span>
+              </div>
+            );
+          });
+        })()}
 
         {/* Aspect Ratio Badge Overlay */}
         <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-mono text-zinc-300 pointer-events-none">

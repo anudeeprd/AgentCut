@@ -141,9 +141,9 @@ export async function exportImageCanvas(
           ctx.globalAlpha = layer.opacity;
 
           // Scale font size proportionally from reference 1080p
-          const scaleFactor = targetH / 1080;
-          const fontSize = Math.max(12, Math.round(layer.fontSize * scaleFactor));
-          ctx.font = `${layer.fontWeight} ${fontSize}px Inter, sans-serif`;
+          const exportScale = targetH / 1080;
+          const fontSize = Math.max(1, Math.round(layer.fontSize * exportScale));
+          ctx.font = `${layer.fontWeight} ${fontSize}px Inter, -apple-system, sans-serif`;
           ctx.fillStyle = layer.color || '#ffffff';
           ctx.textAlign = layer.alignment;
           ctx.textBaseline = 'middle';
@@ -153,9 +153,9 @@ export async function exportImageCanvas(
 
           // Subtle text shadow for high contrast legibility
           ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-          ctx.shadowBlur = 8 * scaleFactor;
-          ctx.shadowOffsetX = 2 * scaleFactor;
-          ctx.shadowOffsetY = 2 * scaleFactor;
+          ctx.shadowBlur = Math.max(1, 8 * exportScale);
+          ctx.shadowOffsetX = Math.max(0.5, 2 * exportScale);
+          ctx.shadowOffsetY = Math.max(0.5, 2 * exportScale);
 
           ctx.fillText(layer.content, posX, posY);
           ctx.restore();
