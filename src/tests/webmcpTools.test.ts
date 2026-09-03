@@ -108,4 +108,15 @@ describe('WebMCP Tool Definitions and Execution', () => {
     expect(state.adjustments.brightness).toBe(15);
     expect(state.adjustments.saturation).toBe(20);
   });
+
+  it('reports truthful metadata on export_video without falsely claiming re-rendering', async () => {
+    const exportVideoTool = toolMap.get('export_video')!;
+    const res = await exportVideoTool.execute({});
+
+    expect(res.success).toBe(true);
+    expect(res.downloaded).toBe('source_media');
+    expect(res.renderedOutput).toBe(false);
+    expect(res.message).toContain('Full client-side video re-encoding');
+    expect(res.projectState).toBeDefined();
+  });
 });

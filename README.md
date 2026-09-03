@@ -92,9 +92,18 @@ AgentCut registers all tools imperatively using `document.modelContext.registerT
 | `remove_video_text` | Mutation | Removes timed text layer by `textId`. |
 | `split_video` | Mutation | Splits clip at timestamp into two segments. |
 | `delete_video_segment` | Mutation | Deletes a clip segment by ID. |
-| `undo_video_edit` | Mutation | Reverts latest video action while preserving other edits. |
-| `redo_video_edit` | Mutation | Re-applies reverted video action. |
-| `export_video` | Mutation | Triggers final video download. |
+| `export_video` | Mutation | Downloads source video asset (prototype note: edits remain live in preview/timeline). |
+
+---
+
+## 🔍 Export Architecture & Prototype Transparency
+
+In creative tools, honesty about rendered output versus preview state is paramount:
+
+* **Image Export (Fully Functional Real Render)**:  
+  Uses an offscreen HTML5 Canvas pipeline. When the human or agent clicks Export or calls `export_image`, the application renders the source image, applies exact aspect-ratio center-cropping, transforms (rotation, horizontal/vertical flips), color adjustments (brightness, contrast, saturation, grayscale, blur), and renders styled text layers with drop shadows. The resulting PNG or JPG file is generated on the client and directly downloaded.
+* **Video Export (Source Download Only)**:  
+  In this hackathon prototype, all video manipulations (trim in/out points, 9:16 vertical framing, 1.5× playback rate, timed text overlay visibility) operate in real-time within the HTMLVideoElement and interactive multi-track timeline. Full client-side video compositing and re-encoding into a newly rendered MP4 file was scoped out to ensure zero-crash browser reliability and fast execution during judge evaluation. `export_video` downloads the source video asset and returns structured metadata clearly disclosing this behavior.
 
 ---
 

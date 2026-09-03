@@ -140,10 +140,25 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAbout, onExport, isExporti
         <button
           onClick={onExport}
           disabled={!hasMedia || isExporting}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 transition-all shadow-sm"
+          title={
+            mode === 'image'
+              ? 'Export edited image with all adjustments, crops, and text layers'
+              : 'Download source video (prototype note: edits are preview-only)'
+          }
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white transition-all shadow-sm ${
+            mode === 'image'
+              ? 'bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40'
+              : 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 disabled:opacity-40'
+          }`}
         >
           <Download className="w-3.5 h-3.5" />
-          <span>{isExporting ? 'Exporting...' : 'Export'}</span>
+          <span>
+            {mode === 'image'
+              ? isExporting
+                ? 'Exporting...'
+                : 'Export PNG'
+              : 'Download Source'}
+          </span>
         </button>
       </div>
     </header>

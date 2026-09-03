@@ -12,6 +12,39 @@ export interface WebMCPToolDefinition {
   execute: (args: any) => Promise<any> | any;
 }
 
+export function ensureImageMode(): void {
+  const current = editorStore.getState();
+  if (current.mode !== 'image') {
+    editorStore.setMode('image');
+  }
+  if (!current.image.source) {
+    editorStore.loadImage({
+      fileName: 'sample-image.jpg',
+      width: 1920,
+      height: 1080,
+      objectUrl: '/demo/sample-image.jpg',
+      isDemo: true,
+    });
+  }
+}
+
+export function ensureVideoMode(): void {
+  const current = editorStore.getState();
+  if (current.mode !== 'video') {
+    editorStore.setMode('video');
+  }
+  if (!current.video.source) {
+    editorStore.loadVideo({
+      fileName: 'sample-video.mp4',
+      duration: 10.0,
+      width: 1280,
+      height: 720,
+      objectUrl: '/demo/sample-video.mp4',
+      isDemo: true,
+    });
+  }
+}
+
 export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
   return [
     // ================= IMAGE TOOLS ================= //
@@ -80,6 +113,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: (args: { ratio: AspectRatio }) => {
+        ensureImageMode();
         const validRatios: AspectRatio[] = ['original', '1:1', '4:5', '16:9', '9:16'];
         if (!validRatios.includes(args?.ratio)) {
           return {
@@ -123,6 +157,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: (args: { degrees: number }) => {
+        ensureImageMode();
         if (typeof args?.degrees !== 'number') {
           return { success: false, error: 'degrees must be a number' };
         }
@@ -154,6 +189,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: (args: { horizontal?: boolean; vertical?: boolean }) => {
+        ensureImageMode();
         editorStore.flipImage({ horizontal: args?.horizontal, vertical: args?.vertical });
         editorStore.addAgentToast('Agent flipped image', 'flip_image', 'image');
 
@@ -183,6 +219,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: (args: Record<string, number | undefined>) => {
+        ensureImageMode();
         const validFields = ['brightness', 'contrast', 'saturation', 'grayscale', 'blur'];
         const updates: Record<string, number> = {};
 
@@ -235,6 +272,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         fontSize?: number;
         color?: string;
       }) => {
+        ensureImageMode();
         if (!args?.content || typeof args.content !== 'string' || !args.content.trim()) {
           return { success: false, error: 'content must be a non-empty string' };
         }
@@ -288,6 +326,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         fontSize?: number;
         opacity?: number;
       }) => {
+        ensureImageMode();
         if (!args?.textId) {
           return { success: false, error: 'textId is required' };
         }
@@ -330,6 +369,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: (args: { textId: string }) => {
+        ensureImageMode();
         if (!args?.textId) {
           return { success: false, error: 'textId is required' };
         }
@@ -356,6 +396,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: () => {
+        ensureImageMode();
         const success = editorStore.undoImage();
         if (!success) {
           return { success: false, error: 'No image edits available to undo' };
@@ -377,6 +418,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: () => {
+        ensureImageMode();
         const success = editorStore.redoImage();
         if (!success) {
           return { success: false, error: 'No image edits available to redo' };
@@ -400,6 +442,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: async (args: { format?: 'png' | 'jpg' }) => {
+        ensureImageMode();
         const project = editorStore.getState().image;
         const result = await exportImageCanvas(project, args?.format || 'png', true);
 
@@ -516,6 +559,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: (args: { startTime: number; endTime: number }) => {
+        ensureVideoMode();
         if (typeof args?.startTime !== 'number' || typeof args?.endTime !== 'number') {
           return { success: false, error: 'startTime and endTime must be numbers' };
         }
@@ -563,6 +607,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: (args: { ratio: AspectRatio }) => {
+        ensureVideoMode();
         const validRatios: AspectRatio[] = ['16:9', '9:16', '1:1', '4:5', 'original'];
         if (!validRatios.includes(args?.ratio)) {
           return {
@@ -602,6 +647,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: (args: { speed: number }) => {
+        ensureVideoMode();
         const success = editorStore.setVideoSpeed(args?.speed);
         if (!success) {
           return {
@@ -636,6 +682,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: (args: { volume?: number; muted?: boolean }) => {
+        ensureVideoMode();
         editorStore.setVideoVolume(args?.volume, args?.muted);
         editorStore.addAgentToast('Agent adjusted video audio', 'set_video_volume', 'video');
 
@@ -679,6 +726,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         position?: SemanticPosition;
         fontSize?: number;
       }) => {
+        ensureVideoMode();
         if (!args?.content || !args.content.trim()) {
           return { success: false, error: 'content must be a non-empty string' };
         }
@@ -741,6 +789,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         startTime?: number;
         endTime?: number;
       }) => {
+        ensureVideoMode();
         if (!args?.textId) {
           return { success: false, error: 'textId is required' };
         }
@@ -778,6 +827,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: (args: { textId: string }) => {
+        ensureVideoMode();
         if (!args?.textId) {
           return { success: false, error: 'textId is required' };
         }
@@ -807,6 +857,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: (args: { time: number }) => {
+        ensureVideoMode();
         const success = editorStore.splitVideo(args?.time);
         if (!success) {
           return { success: false, error: 'Unable to split clip at given timestamp' };
@@ -837,6 +888,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: (args: { segmentId: string }) => {
+        ensureVideoMode();
         const success = editorStore.deleteVideoSegment(args?.segmentId);
         if (!success) {
           return { success: false, error: 'Unable to delete segment or only 1 segment remains' };
@@ -864,6 +916,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: () => {
+        ensureVideoMode();
         const success = editorStore.undoVideo();
         if (!success) {
           return { success: false, error: 'No video edits available to undo' };
@@ -896,6 +949,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: () => {
+        ensureVideoMode();
         const success = editorStore.redoVideo();
         if (!success) {
           return { success: false, error: 'No video edits available to redo' };
@@ -909,7 +963,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
     {
       name: 'export_video',
       description:
-        'Trigger final video rendering with all edits (trim, aspect ratio, speed, text overlays, volume).',
+        'Download the source video media. Note: In this hackathon prototype, full client-side video compositing/re-encoding (baking trims, 9:16 crop, speed changes, and text overlays into a new video file) is not implemented to ensure browser stability; all edits are active and visible in the live preview and timeline.',
       inputSchema: {
         type: 'object',
         properties: {},
@@ -918,20 +972,36 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         readOnlyHint: false,
       },
       execute: () => {
+        ensureVideoMode();
         const v = editorStore.getState().video;
         if (!v.source) {
           return { success: false, error: 'No video loaded to export' };
         }
 
-        editorStore.addAgentToast('Exporting video...', 'export_video', 'video');
+        editorStore.addAgentToast(
+          'Downloaded source video (edits active in preview/timeline)',
+          'export_video',
+          'video'
+        );
 
         return {
           success: true,
           mode: 'video',
-          status: 'rendering_started',
-          fileName: `agentcut-${Date.now()}.mp4`,
-          duration: Number(((v.trim.end - v.trim.start) / v.playbackRate).toFixed(2)),
-          aspectRatio: v.aspectRatio,
+          action: 'export_video',
+          downloaded: 'source_media',
+          renderedOutput: false,
+          status: 'downloaded_source',
+          message:
+            'Source video asset was downloaded. Full client-side video re-encoding (trims, 9:16 crop, speed, and text overlays) was scoped out for hackathon stability; project edits remain live in the interactive preview and timeline.',
+          projectState: {
+            aspectRatio: v.aspectRatio,
+            playbackRate: v.playbackRate,
+            trim: v.trim,
+            textLayersCount: v.textLayers.length,
+            effectiveDuration: Number(
+              ((v.trim.end - v.trim.start) / v.playbackRate).toFixed(2)
+            ),
+          },
         };
       },
     },

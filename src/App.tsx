@@ -93,27 +93,22 @@ export const App: React.FC = () => {
       }
     } else {
       if (!video.source) return;
-      // Real video export trigger
-      editorStore.addAgentToast('Preparing video export...', 'export_video', 'video');
       const v = editorStore.getState().video;
-      const effectiveDuration = ((v.trim.end - v.trim.start) / v.playbackRate).toFixed(1);
-      
-      // Real export via browser download of the video file
       try {
         if (!v.source) return;
         const a = document.createElement('a');
         a.href = v.source.objectUrl;
-        a.download = `agentcut-video-${Date.now()}.mp4`;
+        a.download = `agentcut-source-${Date.now()}.mp4`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         editorStore.addAgentToast(
-          `Exported video (${effectiveDuration}s @ ${v.playbackRate}x, ${v.aspectRatio})`,
+          'Downloaded source video (prototype: edits remain live in preview/timeline)',
           'export_video',
           'video'
         );
       } catch (err: any) {
-        alert(`Video export notice: ${err?.message}`);
+        alert(`Video download notice: ${err?.message}`);
       }
     }
   };

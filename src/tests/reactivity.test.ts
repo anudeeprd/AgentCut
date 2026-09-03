@@ -100,4 +100,21 @@ describe('WebMCP to Store Reactivity', () => {
     expect(editorStore.getState().video.textLayers).toHaveLength(0);
     unsubscribe();
   });
+
+  it('switches visible mode when an image tool is called from video mode, and vice-versa', async () => {
+    editorStore.setMode('video');
+    expect(editorStore.getState().mode).toBe('video');
+
+    // Calling an image tool automatically activates image mode
+    const aspectTool = toolMap.get('set_image_aspect_ratio')!;
+    await aspectTool.execute({ ratio: '4:5' });
+    expect(editorStore.getState().mode).toBe('image');
+    expect(editorStore.getState().image.canvas.aspectRatio).toBe('4:5');
+
+    // Calling a video tool automatically activates video mode
+    const speedTool = toolMap.get('set_video_speed')!;
+    await speedTool.execute({ speed: 1.5 });
+    expect(editorStore.getState().mode).toBe('video');
+    expect(editorStore.getState().video.playbackRate).toBe(1.5);
+  });
 });
