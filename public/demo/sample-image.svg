@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="35%" stop-color="#312e81" />
+      <stop offset="65%" stop-color="#7c2d12" />
+      <stop offset="85%" stop-color="#ea580c" />
+      <stop offset="100%" stop-color="#fef08a" />
+    </linearGradient>
+    <radialGradient id="sun" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="40%" stop-color="#fef08a" />
+      <stop offset="80%" stop-color="#f97316" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#f97316" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="mount1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="mount2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="mount3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#090d16" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="1920" height="1080" fill="url(#sky)" />
+
+  <!-- Stars -->
+  <circle cx="240" cy="120" r="1.5" fill="#ffffff" opacity="0.8" />
+  <circle cx="480" cy="80" r="2" fill="#ffffff" opacity="0.9" />
+  <circle cx="850" cy="150" r="1" fill="#ffffff" opacity="0.6" />
+  <circle cx="1200" cy="90" r="2.5" fill="#ffffff" opacity="0.85" />
+  <circle cx="1600" cy="130" r="1.5" fill="#ffffff" opacity="0.7" />
+  <circle cx="1780" cy="70" r="2" fill="#ffffff" opacity="0.9" />
+  <circle cx="350" cy="200" r="1.5" fill="#ffffff" opacity="0.5" />
+  <circle cx="1400" cy="180" r="1.5" fill="#ffffff" opacity="0.6" />
+
+  <!-- Sun -->
+  <circle cx="960" cy="620" r="320" fill="url(#sun)" opacity="0.85" />
+  <circle cx="960" cy="620" r="110" fill="#fffbeb" opacity="0.95" />
+
+  <!-- Distant Mountain Range -->
+  <polygon points="0,780 240,640 450,720 720,560 980,680 1220,530 1480,690 1720,580 1920,680 1920,1080 0,1080" fill="url(#mount1)" opacity="0.8" />
+
+  <!-- Mid Mountain Range -->
+  <polygon points="0,850 180,740 420,830 680,670 920,790 1150,650 1390,780 1640,690 1920,810 1920,1080 0,1080" fill="url(#mount2)" opacity="0.9" />
+
+  <!-- Foreground Mountain Silhouettes with Pine Trees -->
+  <polygon points="0,940 160,860 320,910 520,820 740,890 990,810 1260,880 1520,800 1780,880 1920,840 1920,1080 0,1080" fill="url(#mount3)" />
+
+  <!-- Water reflection glow at bottom -->
+  <rect x="0" y="980" width="1920" height="100" fill="#020617" opacity="0.95" />
+  <ellipse cx="960" cy="1000" rx="450" ry="25" fill="#f97316" opacity="0.15" />
+</svg>
