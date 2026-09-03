@@ -120,4 +120,27 @@ describe('Image Store Actions and State', () => {
     expect(editorStore.getState().image.textLayers[0].x).toBe(60);
     expect(editorStore.getState().image.textLayers[0].y).toBe(60);
   });
+
+  it('defensively ignores undefined properties in updateImageText', () => {
+    const textId = editorStore.addImageText({
+      content: 'NEW YORK',
+      position: 'top-center',
+      fontSize: 48,
+      opacity: 1,
+    });
+
+    editorStore.updateImageText(textId, {
+      content: undefined,
+      position: undefined,
+      fontSize: 36,
+      opacity: undefined,
+    } as any);
+
+    const layer = editorStore.getState().image.textLayers.find((l) => l.id === textId)!;
+    expect(layer.content).toBe('NEW YORK');
+    expect(layer.position).toBe('top-center');
+    expect(layer.fontSize).toBe(36);
+    expect(layer.opacity).toBe(1);
+    expect(Number.isNaN(layer.opacity)).toBe(false);
+  });
 });

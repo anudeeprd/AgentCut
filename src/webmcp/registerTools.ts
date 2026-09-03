@@ -1,6 +1,12 @@
 import { editorStore } from '../store/editorStore';
 import { exportImageCanvas } from '../services/imageExport';
-import { AspectRatio, SemanticPosition } from '../types/editor';
+import {
+  AspectRatio,
+  SemanticPosition,
+  TextLayer,
+  VideoTextLayer,
+  VideoKeyframeProperties,
+} from '../types/editor';
 
 export interface WebMCPToolDefinition {
   name: string;
@@ -331,12 +337,13 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
           return { success: false, error: 'textId is required' };
         }
 
-        const success = editorStore.updateImageText(args.textId, {
-          content: args.content,
-          position: args.position,
-          fontSize: args.fontSize,
-          opacity: args.opacity,
-        });
+        const updates: Partial<Omit<TextLayer, 'id'>> & { position?: SemanticPosition } = {};
+        if (args.content !== undefined) updates.content = args.content;
+        if (args.position !== undefined) updates.position = args.position;
+        if (args.fontSize !== undefined) updates.fontSize = args.fontSize;
+        if (args.opacity !== undefined) updates.opacity = args.opacity;
+
+        const success = editorStore.updateImageText(args.textId, updates);
 
         if (!success) {
           return { success: false, error: `Text layer with ID "${args.textId}" not found` };
@@ -506,6 +513,22 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
             position: l.position,
             fontSize: l.fontSize,
           })),
+          keyframesCount: (v.keyframes || []).length,
+          animationSummary: (() => {
+            const kfs = v.keyframes || [];
+            const summary: { target: string; keyframes: number }[] = [];
+            const videoKfs = kfs.filter((k) => k.targetType === 'video').length;
+            if (videoKfs > 0) {
+              summary.push({ target: 'video', keyframes: videoKfs });
+            }
+            for (const layer of v.textLayers) {
+              const textKfs = kfs.filter((k) => k.targetType === 'text' && k.targetId === layer.id).length;
+              if (textKfs > 0) {
+                summary.push({ target: layer.content, keyframes: textKfs });
+              }
+            }
+            return summary;
+          })(),
           historyCount: v.history.length,
           lastEdit: v.history.length > 0 ? v.history[v.history.length - 1].entry.label : null,
         };
@@ -794,13 +817,14 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
           return { success: false, error: 'textId is required' };
         }
 
-        const success = editorStore.updateVideoText(args.textId, {
-          content: args.content,
-          position: args.position,
-          fontSize: args.fontSize,
-          startTime: args.startTime,
-          endTime: args.endTime,
-        });
+        const updates: Partial<Omit<VideoTextLayer, 'id'>> = {};
+        if (args.content !== undefined) updates.content = args.content;
+        if (args.position !== undefined) updates.position = args.position;
+        if (args.fontSize !== undefined) updates.fontSize = args.fontSize;
+        if (args.startTime !== undefined) updates.startTime = args.startTime;
+        if (args.endTime !== undefined) updates.endTime = args.endTime;
+
+        const success = editorStore.updateVideoText(args.textId, updates);
 
         if (!success) {
           return { success: false, error: `Video text overlay with ID "${args.textId}" not found` };
@@ -839,6 +863,268 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
 
         editorStore.addAgentToast('Agent removed video text', 'remove_video_text', 'video');
         return { success: true, mode: 'video', action: 'remove_video_text', textId: args.textId };
+      },
+    },
+
+    {
+      name: 'add_video_keyframe',
+      description:
+        "Add an animation keyframe to the current AgentCut video project. Keyframes can animate text-layer position, scale and opacity or animate the video frame's position and scale. Use multiple keyframes at different timestamps to create motion, fades, zooms and pans. The visible preview and timeline update immediately.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          targetType: {
+            type: 'string',
+            enum: ['text', 'video'],
+            description: 'Target to animate ("text" for a text layer, "video" for the video frame)',
+          },
+          targetId: {
+            type: 'string',
+            description: 'Text layer ID to animate (required if targetType is "text")',
+          },
+          time: {
+            type: 'number',
+            minimum: 0,
+            description: 'Timestamp in seconds for the keyframe on timeline',
+          },
+          properties: {
+            type: 'object',
+            properties: {
+              x: { type: 'number', minimum: 0, maximum: 100, description: 'X position percentage (0 to 100)' },
+              y: { type: 'number', minimum: 0, maximum: 100, description: 'Y position percentage (0 to 100)' },
+              scale: { type: 'number', minimum: 0.25, maximum: 3, description: 'Scale multiplier (0.25 to 3)' },
+              opacity: { type: 'number', minimum: 0, maximum: 1, description: 'Opacity (0 to 1)' },
+            },
+            description: 'Visual properties to animate at this timestamp',
+          },
+        },
+        required: ['targetType', 'time', 'properties'],
+      },
+      annotations: {
+        readOnlyHint: false,
+      },
+      execute: (args: {
+        targetType: 'text' | 'video';
+        targetId?: string;
+        time: number;
+        properties: {
+          x?: number;
+          y?: number;
+          scale?: number;
+          opacity?: number;
+        };
+      }) => {
+        ensureVideoMode();
+        if (args?.targetType !== 'text' && args?.targetType !== 'video') {
+          return { success: false, error: 'targetType must be "text" or "video"' };
+        }
+        if (typeof args.time !== 'number' || isNaN(args.time) || args.time < 0) {
+          return { success: false, error: 'time must be a non-negative number' };
+        }
+        if (!args.properties || typeof args.properties !== 'object') {
+          return { success: false, error: 'properties object is required' };
+        }
+
+        // Clean properties
+        const cleanProps: VideoKeyframeProperties = {};
+        if (args.properties.x !== undefined) cleanProps.x = args.properties.x;
+        if (args.properties.y !== undefined) cleanProps.y = args.properties.y;
+        if (args.properties.scale !== undefined) cleanProps.scale = args.properties.scale;
+        if (args.properties.opacity !== undefined) cleanProps.opacity = args.properties.opacity;
+
+        const keyframeId = editorStore.addVideoKeyframe({
+          targetType: args.targetType,
+          targetId: args.targetId,
+          time: args.time,
+          properties: cleanProps,
+        });
+
+        if (!keyframeId) {
+          return {
+            success: false,
+            error:
+              args.targetType === 'text' && !args.targetId
+                ? 'targetId is required when targetType is "text"'
+                : 'Invalid keyframe parameters (check time within video duration, property values within valid ranges, or valid targetId)',
+          };
+        }
+
+        const toastMsg =
+          args.targetType === 'text'
+            ? `Agent added text keyframe at ${args.time}s`
+            : `Agent added video keyframe at ${args.time}s`;
+        editorStore.addAgentToast(toastMsg, 'add_video_keyframe', 'video');
+
+        const created = editorStore.getState().video.keyframes.find((k) => k.id === keyframeId);
+        return {
+          success: true,
+          action: 'add_video_keyframe',
+          keyframeId,
+          keyframe: created,
+        };
+      },
+    },
+
+    {
+      name: 'update_video_keyframe',
+      description:
+        'Update an existing video keyframe by keyframeId (modify timestamp or visual properties). Uses safe partial updates: omitted properties preserve existing values. Visible preview and timeline update immediately.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          keyframeId: { type: 'string', description: 'ID of the keyframe to update' },
+          time: { type: 'number', minimum: 0, description: 'New timestamp in seconds' },
+          properties: {
+            type: 'object',
+            properties: {
+              x: { type: 'number', minimum: 0, maximum: 100 },
+              y: { type: 'number', minimum: 0, maximum: 100 },
+              scale: { type: 'number', minimum: 0.25, maximum: 3 },
+              opacity: { type: 'number', minimum: 0, maximum: 1 },
+            },
+            description: 'Properties to update (omitted properties remain unchanged)',
+          },
+        },
+        required: ['keyframeId'],
+      },
+      annotations: {
+        readOnlyHint: false,
+      },
+      execute: (args: {
+        keyframeId: string;
+        time?: number;
+        properties?: {
+          x?: number;
+          y?: number;
+          scale?: number;
+          opacity?: number;
+        };
+      }) => {
+        ensureVideoMode();
+        if (!args?.keyframeId) {
+          return { success: false, error: 'keyframeId is required' };
+        }
+
+        const updates: { time?: number; properties?: VideoKeyframeProperties } = {};
+        if (args.time !== undefined) {
+          updates.time = args.time;
+        }
+
+        if (args.properties && typeof args.properties === 'object') {
+          const cleanProps: VideoKeyframeProperties = {};
+          if (args.properties.x !== undefined) cleanProps.x = args.properties.x;
+          if (args.properties.y !== undefined) cleanProps.y = args.properties.y;
+          if (args.properties.scale !== undefined) cleanProps.scale = args.properties.scale;
+          if (args.properties.opacity !== undefined) cleanProps.opacity = args.properties.opacity;
+          if (Object.keys(cleanProps).length > 0) {
+            updates.properties = cleanProps;
+          }
+        }
+
+        const success = editorStore.updateVideoKeyframe(args.keyframeId, updates);
+        if (!success) {
+          return {
+            success: false,
+            error: `Keyframe with ID "${args.keyframeId}" not found or invalid parameters`,
+          };
+        }
+
+        editorStore.addAgentToast('Agent updated keyframe', 'update_video_keyframe', 'video');
+        const updated = editorStore.getState().video.keyframes.find((k) => k.id === args.keyframeId);
+        return {
+          success: true,
+          action: 'update_video_keyframe',
+          keyframe: updated,
+        };
+      },
+    },
+
+    {
+      name: 'remove_video_keyframe',
+      description:
+        'Remove an animation keyframe from the video project by keyframeId. The visible preview and timeline update immediately.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          keyframeId: { type: 'string', description: 'ID of the keyframe to remove' },
+        },
+        required: ['keyframeId'],
+      },
+      annotations: {
+        readOnlyHint: false,
+      },
+      execute: (args: { keyframeId: string }) => {
+        ensureVideoMode();
+        if (!args?.keyframeId) {
+          return { success: false, error: 'keyframeId is required' };
+        }
+
+        const success = editorStore.removeVideoKeyframe(args.keyframeId);
+        if (!success) {
+          return { success: false, error: `Keyframe with ID "${args.keyframeId}" not found` };
+        }
+
+        editorStore.addAgentToast('Agent removed keyframe', 'remove_video_keyframe', 'video');
+        return {
+          success: true,
+          action: 'remove_video_keyframe',
+          keyframeId: args.keyframeId,
+        };
+      },
+    },
+
+    {
+      name: 'get_video_keyframes',
+      description:
+        'Read-only inspection of animation keyframes in the video project, ordered chronologically. Supports optional filtering by targetType ("text" | "video") or targetId.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          targetType: {
+            type: 'string',
+            enum: ['text', 'video'],
+            description: 'Optional filter by targetType ("text" or "video")',
+          },
+          targetId: {
+            type: 'string',
+            description: 'Optional filter by text targetId',
+          },
+        },
+      },
+      annotations: {
+        readOnlyHint: true,
+      },
+      execute: (args?: { targetType?: 'text' | 'video'; targetId?: string }) => {
+        const v = editorStore.getState().video;
+        let keyframes = v.keyframes || [];
+
+        if (args?.targetType) {
+          keyframes = keyframes.filter((k) => k.targetType === args.targetType);
+        }
+        if (args?.targetId) {
+          keyframes = keyframes.filter((k) => k.targetId === args.targetId);
+        }
+
+        const enrichedKeyframes = keyframes.map((k) => {
+          let targetContent: string | undefined;
+          if (k.targetType === 'text' && k.targetId) {
+            const layer = v.textLayers.find((l) => l.id === k.targetId);
+            targetContent = layer?.content;
+          }
+          return {
+            id: k.id,
+            targetType: k.targetType,
+            targetId: k.targetId,
+            targetContent,
+            time: k.time,
+            properties: { ...k.properties },
+          };
+        });
+
+        return {
+          success: true,
+          keyframes: enrichedKeyframes,
+        };
       },
     },
 

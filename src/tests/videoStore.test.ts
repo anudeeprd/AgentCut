@@ -126,4 +126,29 @@ describe('Video Store Actions and State', () => {
     expect(editorStore.getState().image.adjustments.brightness).toBe(50);
     expect(editorStore.getState().image.history.length).toBe(imgHistoryLengthBefore);
   });
+
+  it('defensively ignores undefined properties in updateVideoText', () => {
+    const textId = editorStore.addVideoText({
+      content: 'NEW YORK',
+      position: 'top-center',
+      startTime: 2,
+      endTime: 6,
+      fontSize: 72,
+    });
+
+    editorStore.updateVideoText(textId, {
+      content: undefined,
+      position: undefined,
+      fontSize: 48,
+      startTime: undefined,
+      endTime: undefined,
+    } as any);
+
+    const layer = editorStore.getState().video.textLayers.find((l) => l.id === textId)!;
+    expect(layer.content).toBe('NEW YORK');
+    expect(layer.position).toBe('top-center');
+    expect(layer.startTime).toBe(2);
+    expect(layer.endTime).toBe(6);
+    expect(layer.fontSize).toBe(48);
+  });
 });

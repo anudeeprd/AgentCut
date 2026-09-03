@@ -117,4 +117,31 @@ describe('WebMCP to Store Reactivity', () => {
     expect(editorStore.getState().mode).toBe('video');
     expect(editorStore.getState().video.playbackRate).toBe(1.5);
   });
+
+  it('triggers subscribers when add_video_keyframe is called via WebMCP', async () => {
+    editorStore.loadVideo({
+      fileName: 'vid.mp4',
+      duration: 10,
+      width: 1280,
+      height: 720,
+      objectUrl: 'blob:vid',
+    });
+
+    const listener = vi.fn();
+    const unsubscribe = editorStore.subscribe(listener);
+
+    const kfTool = toolMap.get('add_video_keyframe')!;
+    const res = await kfTool.execute({
+      targetType: 'video',
+      time: 3,
+      properties: { scale: 1.2, x: 52, y: 48 },
+    });
+
+    expect(res.success).toBe(true);
+    expect(listener).toHaveBeenCalled();
+    expect(editorStore.getState().video.keyframes).toHaveLength(1);
+    expect(editorStore.getState().video.keyframes[0].time).toBe(3);
+    expect(editorStore.getState().video.keyframes[0].properties.scale).toBe(1.2);
+    unsubscribe();
+  });
 });

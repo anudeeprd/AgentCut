@@ -86,6 +86,24 @@ export interface VideoTextLayer {
   color: string;
 }
 
+export type KeyframeTargetType = 'video' | 'text';
+
+export interface VideoKeyframeProperties {
+  x?: number;
+  y?: number;
+  scale?: number;
+  opacity?: number;
+}
+
+export interface VideoKeyframe {
+  id: string;
+  targetType: KeyframeTargetType;
+  // required only for text target
+  targetId?: string;
+  time: number;
+  properties: VideoKeyframeProperties;
+}
+
 export interface VideoSnapshot {
   aspectRatio: AspectRatio;
   trim: {
@@ -97,6 +115,7 @@ export interface VideoSnapshot {
   volume: number;       // 0 to 100
   muted: boolean;
   textLayers: VideoTextLayer[];
+  keyframes: VideoKeyframe[];
 }
 
 export interface EditHistoryEntry {

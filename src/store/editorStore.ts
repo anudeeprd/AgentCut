@@ -13,6 +13,9 @@ import {
   EditHistoryEntry,
   AgentToast,
   SemanticPosition,
+  VideoKeyframe,
+  VideoKeyframeProperties,
+  KeyframeTargetType,
 } from '../types/editor';
 import { semanticToCoords } from '../utils/position';
 
@@ -62,6 +65,7 @@ const initialVideoSnapshot: VideoSnapshot = {
   volume: 100,
   muted: false,
   textLayers: [],
+  keyframes: [],
 };
 
 function createInitialState(): EditorState {
@@ -112,12 +116,17 @@ export function getVideoSnapshot(video: VideoProject): VideoSnapshot {
     volume: video.volume,
     muted: video.muted,
     textLayers: video.textLayers.map((l) => ({ ...l })),
+    keyframes: (video.keyframes || []).map((k) => ({
+      ...k,
+      properties: { ...k.properties },
+    })),
   };
 }
 
 let textCounter = 1;
 let videoTextCounter = 1;
 let historyCounter = 1;
+let keyframeCounter = 1;
 
 export const editorStore = {
   getState(): EditorState {
@@ -375,12 +384,20 @@ export const editorStore = {
       editorStore.recordImageHistory('update_image_text', `Updated text layer "${exists.content}"`);
     }
 
-    let x = updates.x;
-    let y = updates.y;
-    let alignment = updates.alignment;
+    // Filter out undefined values to prevent overwriting existing properties
+    const cleanUpdates: Partial<Omit<TextLayer, 'id'>> & { position?: SemanticPosition } = {};
+    for (const key of Object.keys(updates) as (keyof typeof updates)[]) {
+      if (updates[key] !== undefined) {
+        (cleanUpdates as any)[key] = updates[key];
+      }
+    }
 
-    if (updates.position) {
-      const coords = semanticToCoords(updates.position);
+    let x = cleanUpdates.x;
+    let y = cleanUpdates.y;
+    let alignment = cleanUpdates.alignment;
+
+    if (cleanUpdates.position) {
+      const coords = semanticToCoords(cleanUpdates.position);
       if (x === undefined) x = coords.x;
       if (y === undefined) y = coords.y;
       if (alignment === undefined) alignment = coords.alignment;
@@ -394,7 +411,7 @@ export const editorStore = {
           if (l.id !== textId) return l;
           return {
             ...l,
-            ...updates,
+            ...cleanUpdates,
             x: x !== undefined ? x : l.x,
             y: y !== undefined ? y : l.y,
             alignment: alignment !== undefined ? alignment : l.alignment,
@@ -662,10 +679,18 @@ export const editorStore = {
 
     editorStore.recordVideoHistory('update_video_text', `Updated text layer "${exists.content}"`);
 
-    let x = updates.x;
-    let y = updates.y;
-    if (updates.position) {
-      const coords = semanticToCoords(updates.position);
+    // Filter out undefined values to prevent overwriting existing properties
+    const cleanUpdates: Partial<Omit<VideoTextLayer, 'id'>> = {};
+    for (const key of Object.keys(updates) as (keyof typeof updates)[]) {
+      if (updates[key] !== undefined) {
+        (cleanUpdates as any)[key] = updates[key];
+      }
+    }
+
+    let x = cleanUpdates.x;
+    let y = cleanUpdates.y;
+    if (cleanUpdates.position) {
+      const coords = semanticToCoords(cleanUpdates.position);
       if (x === undefined) x = coords.x;
       if (y === undefined) y = coords.y;
     }
@@ -678,7 +703,7 @@ export const editorStore = {
           if (l.id !== textId) return l;
           return {
             ...l,
-            ...updates,
+            ...cleanUpdates,
             x: x !== undefined ? x : l.x,
             y: y !== undefined ? y : l.y,
           };
@@ -700,6 +725,228 @@ export const editorStore = {
       video: {
         ...state.video,
         textLayers: state.video.textLayers.filter((l) => l.id !== textId),
+        keyframes: state.video.keyframes.filter(
+          (k) => !(k.targetType === 'text' && k.targetId === textId)
+        ),
+      },
+    };
+    notify();
+    return true;
+  },
+
+  addVideoKeyframe(params: {
+    targetType: KeyframeTargetType;
+    targetId?: string;
+    time: number;
+    properties: VideoKeyframeProperties;
+  }): string | null {
+    const duration = state.video.source?.duration || 10;
+
+    // Validate targetType
+    if (params.targetType !== 'video' && params.targetType !== 'text') {
+      return null;
+    }
+
+    // If text target, targetId must correspond to an existing text layer
+    if (params.targetType === 'text') {
+      if (!params.targetId) return null;
+      const textLayerExists = state.video.textLayers.some((l) => l.id === params.targetId);
+      if (!textLayerExists) return null;
+    }
+
+    // Validate time
+    if (
+      typeof params.time !== 'number' ||
+      isNaN(params.time) ||
+      params.time < 0 ||
+      params.time > duration
+    ) {
+      return null;
+    }
+
+    // Validate properties defensively
+    const cleanProps: VideoKeyframeProperties = {};
+    if (params.properties) {
+      if (params.properties.x !== undefined) {
+        if (
+          typeof params.properties.x !== 'number' ||
+          isNaN(params.properties.x) ||
+          params.properties.x < 0 ||
+          params.properties.x > 100
+        ) {
+          return null;
+        }
+        cleanProps.x = params.properties.x;
+      }
+      if (params.properties.y !== undefined) {
+        if (
+          typeof params.properties.y !== 'number' ||
+          isNaN(params.properties.y) ||
+          params.properties.y < 0 ||
+          params.properties.y > 100
+        ) {
+          return null;
+        }
+        cleanProps.y = params.properties.y;
+      }
+      if (params.properties.scale !== undefined) {
+        if (
+          typeof params.properties.scale !== 'number' ||
+          isNaN(params.properties.scale) ||
+          params.properties.scale < 0.25 ||
+          params.properties.scale > 3
+        ) {
+          return null;
+        }
+        cleanProps.scale = params.properties.scale;
+      }
+      if (params.properties.opacity !== undefined) {
+        if (
+          typeof params.properties.opacity !== 'number' ||
+          isNaN(params.properties.opacity) ||
+          params.properties.opacity < 0 ||
+          params.properties.opacity > 1
+        ) {
+          return null;
+        }
+        cleanProps.opacity = params.properties.opacity;
+      }
+    }
+
+    if (Object.keys(cleanProps).length === 0) {
+      return null;
+    }
+
+    const keyframeId = `kf-${keyframeCounter++}`;
+    const newKeyframe: VideoKeyframe = {
+      id: keyframeId,
+      targetType: params.targetType,
+      targetId: params.targetType === 'text' ? params.targetId : undefined,
+      time: Number(params.time.toFixed(3)),
+      properties: cleanProps,
+    };
+
+    const historyLabel =
+      params.targetType === 'text'
+        ? `Added text keyframe at ${params.time.toFixed(1)}s`
+        : `Added video keyframe at ${params.time.toFixed(1)}s`;
+    editorStore.recordVideoHistory('add_video_keyframe', historyLabel);
+
+    const updatedKeyframes = [...state.video.keyframes, newKeyframe].sort((a, b) => a.time - b.time);
+
+    state = {
+      ...state,
+      video: {
+        ...state.video,
+        keyframes: updatedKeyframes,
+      },
+    };
+    notify();
+    return keyframeId;
+  },
+
+  updateVideoKeyframe(
+    keyframeId: string,
+    updates: {
+      time?: number;
+      properties?: VideoKeyframeProperties;
+    }
+  ): boolean {
+    const existing = state.video.keyframes.find((k) => k.id === keyframeId);
+    if (!existing) return false;
+
+    const duration = state.video.source?.duration || 10;
+    let newTime = existing.time;
+
+    if (updates.time !== undefined) {
+      if (
+        typeof updates.time !== 'number' ||
+        isNaN(updates.time) ||
+        updates.time < 0 ||
+        updates.time > duration
+      ) {
+        return false;
+      }
+      newTime = Number(updates.time.toFixed(3));
+    }
+
+    const updatedProps: VideoKeyframeProperties = { ...existing.properties };
+
+    if (updates.properties) {
+      if (updates.properties.x !== undefined) {
+        if (
+          typeof updates.properties.x !== 'number' ||
+          isNaN(updates.properties.x) ||
+          updates.properties.x < 0 ||
+          updates.properties.x > 100
+        ) {
+          return false;
+        }
+        updatedProps.x = updates.properties.x;
+      }
+      if (updates.properties.y !== undefined) {
+        if (
+          typeof updates.properties.y !== 'number' ||
+          isNaN(updates.properties.y) ||
+          updates.properties.y < 0 ||
+          updates.properties.y > 100
+        ) {
+          return false;
+        }
+        updatedProps.y = updates.properties.y;
+      }
+      if (updates.properties.scale !== undefined) {
+        if (
+          typeof updates.properties.scale !== 'number' ||
+          isNaN(updates.properties.scale) ||
+          updates.properties.scale < 0.25 ||
+          updates.properties.scale > 3
+        ) {
+          return false;
+        }
+        updatedProps.scale = updates.properties.scale;
+      }
+      if (updates.properties.opacity !== undefined) {
+        if (
+          typeof updates.properties.opacity !== 'number' ||
+          isNaN(updates.properties.opacity) ||
+          updates.properties.opacity < 0 ||
+          updates.properties.opacity > 1
+        ) {
+          return false;
+        }
+        updatedProps.opacity = updates.properties.opacity;
+      }
+    }
+
+    editorStore.recordVideoHistory('update_video_keyframe', `Updated keyframe at ${newTime.toFixed(1)}s`);
+
+    const updatedKeyframes = state.video.keyframes
+      .map((k) => (k.id === keyframeId ? { ...k, time: newTime, properties: updatedProps } : k))
+      .sort((a, b) => a.time - b.time);
+
+    state = {
+      ...state,
+      video: {
+        ...state.video,
+        keyframes: updatedKeyframes,
+      },
+    };
+    notify();
+    return true;
+  },
+
+  removeVideoKeyframe(keyframeId: string): boolean {
+    const existing = state.video.keyframes.find((k) => k.id === keyframeId);
+    if (!existing) return false;
+
+    editorStore.recordVideoHistory('remove_video_keyframe', `Removed keyframe at ${existing.time.toFixed(1)}s`);
+
+    state = {
+      ...state,
+      video: {
+        ...state.video,
+        keyframes: state.video.keyframes.filter((k) => k.id !== keyframeId),
       },
     };
     notify();

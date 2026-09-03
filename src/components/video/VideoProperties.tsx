@@ -30,6 +30,16 @@ export const VideoProperties: React.FC<VideoPropertiesProps> = ({
   const [newEndTime, setNewEndTime] = useState(6);
   const [newPosition, setNewPosition] = useState<SemanticPosition>('bottom-center');
 
+  // Keyframe controls state
+  const [textKfX, setTextKfX] = useState(50);
+  const [textKfY, setTextKfY] = useState(50);
+  const [textKfScale, setTextKfScale] = useState(1);
+  const [textKfOpacity, setTextKfOpacity] = useState(1);
+
+  const [videoKfX, setVideoKfX] = useState(50);
+  const [videoKfY, setVideoKfY] = useState(50);
+  const [videoKfScale, setVideoKfScale] = useState(1);
+
   if (!project.source) return null;
 
   const totalDuration = project.source.duration || 10;
@@ -53,6 +63,22 @@ export const VideoProperties: React.FC<VideoPropertiesProps> = ({
   ];
 
   const selectedTextLayer = project.textLayers.find((l) => l.id === selectedTextId);
+
+  React.useEffect(() => {
+    if (selectedTextLayer) {
+      setTextKfX(selectedTextLayer.x);
+      setTextKfY(selectedTextLayer.y);
+      setTextKfScale(1);
+      setTextKfOpacity(selectedTextLayer.opacity !== undefined ? selectedTextLayer.opacity : 1);
+    }
+  }, [selectedTextLayer?.id]);
+
+  const videoKeyframes = (project.keyframes || []).filter((k) => k.targetType === 'video');
+  const textKeyframes = selectedTextLayer
+    ? (project.keyframes || []).filter(
+        (k) => k.targetType === 'text' && k.targetId === selectedTextLayer.id
+      )
+    : [];
 
   const handleAddText = (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,6 +243,100 @@ export const VideoProperties: React.FC<VideoPropertiesProps> = ({
                 className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
               />
             </div>
+
+            {/* Video Animation Keyframes */}
+            <div className="space-y-2.5 border-t border-zinc-800/80 pt-4">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold uppercase tracking-wider text-[10px] text-amber-400">
+                  Video Animation
+                </span>
+                <span className="text-[10px] text-zinc-400 font-mono">
+                  @ {project.playhead.toFixed(1)}s
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] text-zinc-400">X (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={videoKfX}
+                    onChange={(e) => setVideoKfX(Number(e.target.value))}
+                    className="w-full px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-zinc-400">Y (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={videoKfY}
+                    onChange={(e) => setVideoKfY(Number(e.target.value))}
+                    className="w-full px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-zinc-400">Scale</label>
+                  <input
+                    type="number"
+                    min="0.25"
+                    max="3"
+                    step="0.1"
+                    value={videoKfScale}
+                    onChange={(e) => setVideoKfScale(Number(e.target.value))}
+                    className="w-full px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  editorStore.addVideoKeyframe({
+                    targetType: 'video',
+                    time: Number(project.playhead.toFixed(2)),
+                    properties: {
+                      x: videoKfX,
+                      y: videoKfY,
+                      scale: videoKfScale,
+                    },
+                  });
+                }}
+                className="w-full py-1.5 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white font-medium text-[11px] flex items-center justify-center gap-1 transition-colors shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add video keyframe at playhead</span>
+              </button>
+
+              {/* List video keyframes */}
+              {videoKeyframes.length > 0 && (
+                <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                  {videoKeyframes.map((kf) => (
+                    <div
+                      key={kf.id}
+                      className="flex items-center justify-between px-2 py-1 rounded bg-zinc-900/60 border border-zinc-800 text-[10px]"
+                    >
+                      <span className="font-mono text-amber-400">{kf.time.toFixed(1)}s</span>
+                      <span className="text-zinc-400 font-mono text-[9px]">
+                        {kf.properties.scale !== undefined && `S:${kf.properties.scale} `}
+                        {kf.properties.x !== undefined && `X:${kf.properties.x} `}
+                        {kf.properties.y !== undefined && `Y:${kf.properties.y}`}
+                      </span>
+                      <button
+                        onClick={() => editorStore.removeVideoKeyframe(kf.id)}
+                        className="text-red-400 hover:text-red-300 p-0.5 rounded hover:bg-red-500/10"
+                        title="Delete keyframe"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -365,6 +485,115 @@ export const VideoProperties: React.FC<VideoPropertiesProps> = ({
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Text Animation Keyframes */}
+                <div className="border-t border-zinc-800/80 pt-3 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold uppercase tracking-wider text-[10px] text-yellow-400">
+                      Animation
+                    </span>
+                    <span className="text-[10px] text-zinc-400 font-mono">
+                      @ {project.playhead.toFixed(1)}s
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-zinc-400">X (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={textKfX}
+                        onChange={(e) => setTextKfX(Number(e.target.value))}
+                        className="w-full px-2 py-1 rounded bg-zinc-950 border border-zinc-800 text-zinc-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-zinc-400">Y (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={textKfY}
+                        onChange={(e) => setTextKfY(Number(e.target.value))}
+                        className="w-full px-2 py-1 rounded bg-zinc-950 border border-zinc-800 text-zinc-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-zinc-400">Scale</label>
+                      <input
+                        type="number"
+                        min="0.25"
+                        max="3"
+                        step="0.1"
+                        value={textKfScale}
+                        onChange={(e) => setTextKfScale(Number(e.target.value))}
+                        className="w-full px-2 py-1 rounded bg-zinc-950 border border-zinc-800 text-zinc-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-zinc-400">Opacity</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={textKfOpacity}
+                        onChange={(e) => setTextKfOpacity(Number(e.target.value))}
+                        className="w-full px-2 py-1 rounded bg-zinc-950 border border-zinc-800 text-zinc-200"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      editorStore.addVideoKeyframe({
+                        targetType: 'text',
+                        targetId: selectedTextLayer.id,
+                        time: Number(project.playhead.toFixed(2)),
+                        properties: {
+                          x: textKfX,
+                          y: textKfY,
+                          scale: textKfScale,
+                          opacity: textKfOpacity,
+                        },
+                      });
+                    }}
+                    className="w-full py-1.5 rounded-lg bg-yellow-600/80 hover:bg-yellow-500 text-white font-medium text-[11px] flex items-center justify-center gap-1 transition-colors shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add keyframe at playhead</span>
+                  </button>
+
+                  {/* List text layer keyframes */}
+                  {textKeyframes.length > 0 && (
+                    <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
+                      {textKeyframes.map((kf) => (
+                        <div
+                          key={kf.id}
+                          className="flex items-center justify-between px-2 py-1 rounded bg-zinc-950 border border-zinc-800/80 text-[10px]"
+                        >
+                          <span className="font-mono text-yellow-400">{kf.time.toFixed(1)}s</span>
+                          <span className="text-zinc-400 font-mono text-[9px]">
+                            {kf.properties.scale !== undefined && `S:${kf.properties.scale} `}
+                            {kf.properties.opacity !== undefined && `O:${kf.properties.opacity} `}
+                            {kf.properties.x !== undefined && `X:${kf.properties.x} `}
+                            {kf.properties.y !== undefined && `Y:${kf.properties.y}`}
+                          </span>
+                          <button
+                            onClick={() => editorStore.removeVideoKeyframe(kf.id)}
+                            className="text-red-400 hover:text-red-300 p-0.5 rounded hover:bg-red-500/10"
+                            title="Delete keyframe"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

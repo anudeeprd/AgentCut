@@ -1,6 +1,10 @@
 import React, { useRef, useEffect } from 'react';
 import { useVideoProject } from '../../store/useEditorStore';
 import { editorStore } from '../../store/editorStore';
+import {
+  interpolateTextLayerKeyframes,
+  interpolateVideoKeyframes,
+} from '../../utils/interpolation';
 
 interface VideoPreviewProps {
   selectedTextId: string | null;
@@ -88,6 +92,9 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
     }
   };
 
+  // Compute active video animation transform
+  const videoAnim = interpolateVideoKeyframes(project.keyframes || [], project.playhead);
+
   // Filter text overlays active at current playhead time
   const visibleTextLayers = project.textLayers.filter(
     (layer) => project.playhead >= layer.startTime && project.playhead <= layer.endTime
@@ -120,11 +127,17 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
             }
           }}
           className="w-full h-full object-cover pointer-events-none"
+          style={{
+            transform: `translate(${videoAnim.x - 50}%, ${videoAnim.y - 50}%) scale(${videoAnim.scale})`,
+            transformOrigin: 'center center',
+            transition: project.isPlaying ? 'none' : 'transform 150ms ease-out',
+          }}
         />
 
         {/* Timed Text Overlays */}
         {visibleTextLayers.map((layer) => {
           const isSelected = selectedTextId === layer.id;
+          const anim = interpolateTextLayerKeyframes(layer, project.keyframes || [], project.playhead);
 
           return (
             <div
@@ -133,15 +146,19 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
                 e.stopPropagation();
                 onSelectTextId(layer.id);
               }}
-              className={`absolute cursor-pointer transition-all duration-150 px-3 py-1.5 rounded select-none -translate-x-1/2 -translate-y-1/2 ${
+              className={`absolute cursor-pointer px-3 py-1.5 rounded select-none ${
+                project.isPlaying ? '' : 'transition-all duration-150'
+              } ${
                 isSelected
                   ? 'ring-2 ring-purple-500 bg-purple-500/20 backdrop-blur-sm'
                   : 'hover:ring-1 hover:ring-zinc-400/60'
               }`}
               style={{
-                left: `${layer.x}%`,
-                top: `${layer.y}%`,
-                opacity: layer.opacity,
+                left: `${anim.x}%`,
+                top: `${anim.y}%`,
+                opacity: anim.opacity,
+                transform: `translate(-50%, -50%) scale(${anim.scale})`,
+                transformOrigin: 'center center',
               }}
             >
               <span

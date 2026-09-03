@@ -234,6 +234,33 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
                 );
               })}
             </div>
+
+            {/* Video Keyframe Markers */}
+            {(project.keyframes || [])
+              .filter((k) => k.targetType === 'video')
+              .map((kf) => {
+                const posPercent = (kf.time / totalDuration) * 100;
+                const tooltipLines = [`${kf.time.toFixed(1)}s`];
+                if (kf.properties.scale !== undefined) tooltipLines.push(`Scale ${kf.properties.scale}`);
+                if (kf.properties.x !== undefined) tooltipLines.push(`X ${kf.properties.x}`);
+                if (kf.properties.y !== undefined) tooltipLines.push(`Y ${kf.properties.y}`);
+                const tooltip = tooltipLines.join('\n');
+
+                return (
+                  <div
+                    key={kf.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      editorStore.setPlayhead(kf.time);
+                    }}
+                    title={tooltip}
+                    className="absolute z-20 cursor-pointer -translate-x-1/2 -translate-y-1/2 group"
+                    style={{ left: `${posPercent}%`, top: '50%' }}
+                  >
+                    <div className="w-3 h-3 rotate-45 bg-amber-400 hover:bg-amber-300 border border-white shadow-md transition-transform hover:scale-125" />
+                  </div>
+                );
+              })}
           </div>
 
           {/* Text Overlay Tracks */}
@@ -268,6 +295,37 @@ export const VideoTimeline: React.FC<VideoTimelineProps> = ({
                 </div>
               );
             })}
+
+            {/* Text Keyframe Markers */}
+            {(project.keyframes || [])
+              .filter((k) => k.targetType === 'text')
+              .map((kf) => {
+                const posPercent = (kf.time / totalDuration) * 100;
+                const tooltipLines = [`${kf.time.toFixed(1)}s`];
+                if (kf.properties.scale !== undefined) tooltipLines.push(`Scale ${kf.properties.scale}`);
+                if (kf.properties.opacity !== undefined) tooltipLines.push(`Opacity ${kf.properties.opacity}`);
+                if (kf.properties.x !== undefined) tooltipLines.push(`X ${kf.properties.x}`);
+                if (kf.properties.y !== undefined) tooltipLines.push(`Y ${kf.properties.y}`);
+                const tooltip = tooltipLines.join('\n');
+
+                return (
+                  <div
+                    key={kf.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      editorStore.setPlayhead(kf.time);
+                      if (kf.targetId) {
+                        onSelectTextId(kf.targetId);
+                      }
+                    }}
+                    title={tooltip}
+                    className="absolute z-20 cursor-pointer -translate-x-1/2 -translate-y-1/2 group"
+                    style={{ left: `${posPercent}%`, top: '50%' }}
+                  >
+                    <div className="w-2.5 h-2.5 rotate-45 bg-yellow-300 hover:bg-yellow-200 border border-white shadow-md transition-transform hover:scale-125" />
+                  </div>
+                );
+              })}
           </div>
 
           {/* Playhead Scrubber */}
