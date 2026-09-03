@@ -86,4 +86,38 @@ describe('Image Store Actions and State', () => {
     editorStore.redoImage();
     expect(editorStore.getState().image.adjustments.brightness).toBe(25);
   });
+
+  it('coalesces drag movement updates without spamming history until committed', () => {
+    const textId = editorStore.addImageText({
+      content: 'Draggable Text',
+      position: 'center',
+    });
+
+    const initialHistoryLength = editorStore.getState().image.history.length;
+    const initialSnapshot = { ...editorStore.getState().image };
+
+    // Simulate 5 rapid pointer-move events during drag
+    for (let i = 1; i <= 5; i++) {
+      editorStore.updateImageText(textId, { x: 50 + i * 2, y: 50 + i * 2 }, false);
+      // History length MUST NOT increase during drag movement!
+      expect(editorStore.getState().image.history).toHaveLength(initialHistoryLength);
+    }
+
+    expect(editorStore.getState().image.textLayers[0].x).toBe(60);
+    expect(editorStore.getState().image.textLayers[0].y).toBe(60);
+
+    // Commit single history entry at end of drag
+    editorStore.recordImageHistoryWithSnapshot(initialSnapshot, 'move_image_text', 'Moved text "Draggable Text"');
+    expect(editorStore.getState().image.history).toHaveLength(initialHistoryLength + 1);
+
+    // Undo should cleanly revert back to the position before the drag began
+    editorStore.undoImage();
+    expect(editorStore.getState().image.textLayers[0].x).toBe(50);
+    expect(editorStore.getState().image.textLayers[0].y).toBe(50);
+
+    // Redo restores the final dropped position
+    editorStore.redoImage();
+    expect(editorStore.getState().image.textLayers[0].x).toBe(60);
+    expect(editorStore.getState().image.textLayers[0].y).toBe(60);
+  });
 });

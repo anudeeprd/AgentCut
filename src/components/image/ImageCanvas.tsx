@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useImageProject } from '../../store/useEditorStore';
-import { editorStore } from '../../store/editorStore';
+import { editorStore, getImageSnapshot } from '../../store/editorStore';
+import { ImageSnapshot } from '../../types/editor';
 
 interface ImageCanvasProps {
   selectedTextId: string | null;
@@ -14,6 +15,7 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
   const project = useImageProject();
   const containerRef = useRef<HTMLDivElement>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [initialDragSnapshot, setInitialDragSnapshot] = useState<ImageSnapshot | null>(null);
   const [displayedCanvasHeight, setDisplayedCanvasHeight] = useState<number>(0);
 
   // Measure actual displayed canvas/frame height using containerRef and ResizeObserver
@@ -83,6 +85,8 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
     e.stopPropagation();
     onSelectTextId(id);
     setDraggingId(id);
+    const snapshot = getImageSnapshot(editorStore.getState().image);
+    setInitialDragSnapshot(snapshot);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
@@ -91,12 +95,32 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
     const rect = containerRef.current.getBoundingClientRect();
     const x = Math.max(5, Math.min(95, ((e.clientX - rect.left) / rect.width) * 100));
     const y = Math.max(5, Math.min(95, ((e.clientY - rect.top) / rect.height) * 100));
-    editorStore.updateImageText(draggingId, { x, y });
+    // During drag, update coordinates without creating a history snapshot on every mouse move
+    editorStore.updateImageText(draggingId, { x, y }, false);
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
     if (draggingId) {
+      if (initialDragSnapshot) {
+        const initialLayer = initialDragSnapshot.textLayers.find((l) => l.id === draggingId);
+        const currentLayer = editorStore.getState().image.textLayers.find((l) => l.id === draggingId);
+
+        // Only record history if the layer was actually moved (distance > 0.5%)
+        if (
+          initialLayer &&
+          currentLayer &&
+          (Math.abs(currentLayer.x - initialLayer.x) > 0.5 ||
+            Math.abs(currentLayer.y - initialLayer.y) > 0.5)
+        ) {
+          editorStore.recordImageHistoryWithSnapshot(
+            initialDragSnapshot,
+            'move_image_text',
+            `Moved text "${currentLayer.content}"`
+          );
+        }
+      }
       setDraggingId(null);
+      setInitialDragSnapshot(null);
       try {
         (e.target as HTMLElement).releasePointerCapture(e.pointerId);
       } catch {

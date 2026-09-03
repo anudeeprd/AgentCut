@@ -7,7 +7,6 @@ import {
   Plus, 
   Trash2, 
   Sliders, 
-  History as HistoryIcon,
   Crop
 } from 'lucide-react';
 import { useImageProject } from '../../store/useEditorStore';
@@ -24,7 +23,7 @@ export const ImageProperties: React.FC<ImagePropertiesProps> = ({
   onSelectTextId,
 }) => {
   const project = useImageProject();
-  const [activeTab, setActiveTab] = useState<'adjust' | 'text' | 'history'>('adjust');
+  const [activeTab, setActiveTab] = useState<'adjust' | 'text'>('adjust');
   const [newTextContent, setNewTextContent] = useState('');
   const [newTextPosition, setNewTextPosition] = useState<SemanticPosition>('bottom-center');
 
@@ -88,17 +87,6 @@ export const ImageProperties: React.FC<ImagePropertiesProps> = ({
         >
           <Type className="w-3.5 h-3.5 text-indigo-400" />
           <span>Text ({project.textLayers.length})</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md font-medium transition-all ${
-            activeTab === 'history'
-              ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700/60'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
-          }`}
-        >
-          <HistoryIcon className="w-3.5 h-3.5 text-indigo-400" />
-          <span>History ({project.history.length})</span>
         </button>
       </div>
 
@@ -416,29 +404,6 @@ export const ImageProperties: React.FC<ImagePropertiesProps> = ({
                 </div>
               ))}
             </div>
-          </div>
-        )}
-
-        {activeTab === 'history' && (
-          <div className="space-y-2">
-            <span className="font-semibold uppercase tracking-wider text-[10px] text-zinc-400">
-              Edit History Stack
-            </span>
-            {project.history.length === 0 ? (
-              <p className="text-zinc-500 py-4 text-center">No edits made yet.</p>
-            ) : (
-              <div className="space-y-1">
-                {project.history.map((h, i) => (
-                  <div
-                    key={h.entry.id}
-                    className="p-2 rounded bg-zinc-900/50 border border-zinc-800/80 flex items-center justify-between"
-                  >
-                    <span className="text-zinc-200">{h.entry.label}</span>
-                    <span className="font-mono text-[10px] text-zinc-500">#{i + 1}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
       </div>

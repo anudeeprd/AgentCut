@@ -94,7 +94,7 @@ function notify() {
   listeners.forEach((listener) => listener());
 }
 
-function getImageSnapshot(image: ImageProject): ImageSnapshot {
+export function getImageSnapshot(image: ImageProject): ImageSnapshot {
   return {
     canvas: { ...image.canvas },
     transform: { ...image.transform },
@@ -103,7 +103,7 @@ function getImageSnapshot(image: ImageProject): ImageSnapshot {
   };
 }
 
-function getVideoSnapshot(video: VideoProject): VideoSnapshot {
+export function getVideoSnapshot(video: VideoProject): VideoSnapshot {
   return {
     aspectRatio: video.aspectRatio,
     trim: { ...video.trim },
@@ -204,6 +204,26 @@ export const editorStore = {
         future: [], // clear redo stack on new modification
       },
     };
+  },
+
+  recordImageHistoryWithSnapshot(snapshot: ImageSnapshot, type: string, label: string) {
+    const entry: EditHistoryEntry = {
+      id: `edit-${historyCounter++}`,
+      mode: 'image',
+      type,
+      label,
+      timestamp: Date.now(),
+    };
+
+    state = {
+      ...state,
+      image: {
+        ...state.image,
+        history: [...state.image.history, { entry, snapshot }],
+        future: [], // clear redo stack on new modification
+      },
+    };
+    notify();
   },
 
   setImageAspectRatio(ratio: AspectRatio) {
@@ -345,12 +365,15 @@ export const editorStore = {
 
   updateImageText(
     textId: string,
-    updates: Partial<Omit<TextLayer, 'id'>> & { position?: SemanticPosition }
+    updates: Partial<Omit<TextLayer, 'id'>> & { position?: SemanticPosition },
+    recordHistory: boolean = true
   ): boolean {
     const exists = state.image.textLayers.find((l) => l.id === textId);
     if (!exists) return false;
 
-    editorStore.recordImageHistory('update_image_text', `Updated text layer "${exists.content}"`);
+    if (recordHistory) {
+      editorStore.recordImageHistory('update_image_text', `Updated text layer "${exists.content}"`);
+    }
 
     let x = updates.x;
     let y = updates.y;
