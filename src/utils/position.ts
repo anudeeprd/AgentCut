@@ -9,29 +9,29 @@ export interface PositionCoordinates {
 export function semanticToCoords(position: SemanticPosition): PositionCoordinates {
   switch (position) {
     case 'top-left':
-      return { x: 10, y: 12, alignment: 'left' };
+      return { x: 20, y: 38, alignment: 'left' };
     case 'top-center':
-      return { x: 50, y: 12, alignment: 'center' };
+      return { x: 50, y: 38, alignment: 'center' };
     case 'top-right':
-      return { x: 90, y: 12, alignment: 'right' };
+      return { x: 80, y: 38, alignment: 'right' };
     case 'center':
       return { x: 50, y: 50, alignment: 'center' };
     case 'bottom-left':
-      return { x: 10, y: 88, alignment: 'left' };
+      return { x: 20, y: 62, alignment: 'left' };
     case 'bottom-center':
-      return { x: 50, y: 88, alignment: 'center' };
+      return { x: 50, y: 62, alignment: 'center' };
     case 'bottom-right':
-      return { x: 90, y: 88, alignment: 'right' };
+      return { x: 80, y: 62, alignment: 'right' };
     default:
       return { x: 50, y: 50, alignment: 'center' };
   }
 }
 
 export function coordsToSemantic(x: number, y: number): SemanticPosition {
-  const isTop = y < 33;
-  const isBottom = y > 66;
-  const isLeft = x < 33;
-  const isRight = x > 66;
+  const isTop = y < 44;
+  const isBottom = y > 56;
+  const isLeft = x < 35;
+  const isRight = x > 65;
 
   if (isTop && isLeft) return 'top-left';
   if (isTop && isRight) return 'top-right';

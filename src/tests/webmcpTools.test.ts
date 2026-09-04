@@ -117,15 +117,18 @@ describe('WebMCP Tool Definitions and Execution', () => {
     expect(state.adjustments.saturation).toBe(20);
   });
 
-  it('reports truthful metadata on export_video without falsely claiming re-rendering', async () => {
+  it('executes real rendered composition export on export_video', async () => {
     const exportVideoTool = toolMap.get('export_video')!;
     const res = await exportVideoTool.execute({});
 
     expect(res.success).toBe(true);
-    expect(res.downloaded).toBe('source_media');
-    expect(res.renderedOutput).toBe(false);
-    expect(res.message).toContain('Full client-side video re-encoding');
-    expect(res.projectState).toBeDefined();
+    expect(res.action).toBe('export_video');
+    expect(res.format).toBe('webm');
+    expect(res.renderedOutput).toBe(true);
+    expect(res.includesEdits).toBe(true);
+    expect(res.fileName).toContain('.webm');
+    expect(res.duration).toBeGreaterThan(0);
+    expect(res.resolution).toBeDefined();
   });
 
   it('preserves unspecified properties on partial update_image_text (IMAGE regression test)', async () => {

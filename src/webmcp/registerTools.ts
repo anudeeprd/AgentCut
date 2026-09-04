@@ -1,5 +1,6 @@
 import { editorStore } from '../store/editorStore';
 import { exportImageCanvas } from '../services/imageExport';
+import { exportVideoComposition } from '../services/videoExport';
 import {
   AspectRatio,
   SemanticPosition,
@@ -7,6 +8,7 @@ import {
   VideoTextLayer,
   VideoKeyframeProperties,
 } from '../types/editor';
+import { CURATED_FONTS, WEBMCP_FONT_SCHEMA, isValidFont } from '../constants/fonts';
 
 export interface WebMCPToolDefinition {
   name: string;
@@ -93,6 +95,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
             y: l.y,
             fontSize: l.fontSize,
             opacity: l.opacity,
+            fontFamily: l.fontFamily || 'Inter',
           })),
           historyCount: state.history.length,
           lastEdit: state.history.length > 0 ? state.history[state.history.length - 1].entry.label : null,
@@ -266,6 +269,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
           },
           fontSize: { type: 'number', minimum: 12, maximum: 120, description: 'Font size in px' },
           color: { type: 'string', description: 'Hex color string' },
+          fontFamily: WEBMCP_FONT_SCHEMA,
         },
         required: ['content'],
       },
@@ -277,10 +281,18 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         position?: SemanticPosition;
         fontSize?: number;
         color?: string;
+        fontFamily?: string;
       }) => {
         ensureImageMode();
         if (!args?.content || typeof args.content !== 'string' || !args.content.trim()) {
           return { success: false, error: 'content must be a non-empty string' };
+        }
+
+        if (args.fontFamily !== undefined && !isValidFont(args.fontFamily)) {
+          return {
+            success: false,
+            error: `Invalid font "${args.fontFamily}". Must be one of: ${CURATED_FONTS.join(', ')}`,
+          };
         }
 
         const textId = editorStore.addImageText({
@@ -288,6 +300,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
           position: args.position || 'bottom-center',
           fontSize: args.fontSize || 48,
           color: args.color || '#ffffff',
+          fontFamily: args.fontFamily,
         });
 
         editorStore.addAgentToast(`Agent added text "${args.content}"`, 'add_image_text', 'image');
@@ -319,6 +332,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
           },
           fontSize: { type: 'number', description: 'New font size in px' },
           opacity: { type: 'number', minimum: 0, maximum: 1, description: 'Layer opacity' },
+          fontFamily: WEBMCP_FONT_SCHEMA,
         },
         required: ['textId'],
       },
@@ -331,10 +345,18 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         position?: SemanticPosition;
         fontSize?: number;
         opacity?: number;
+        fontFamily?: string;
       }) => {
         ensureImageMode();
         if (!args?.textId) {
           return { success: false, error: 'textId is required' };
+        }
+
+        if (args.fontFamily !== undefined && !isValidFont(args.fontFamily)) {
+          return {
+            success: false,
+            error: `Invalid font "${args.fontFamily}". Must be one of: ${CURATED_FONTS.join(', ')}`,
+          };
         }
 
         const updates: Partial<Omit<TextLayer, 'id'>> & { position?: SemanticPosition } = {};
@@ -342,6 +364,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         if (args.position !== undefined) updates.position = args.position;
         if (args.fontSize !== undefined) updates.fontSize = args.fontSize;
         if (args.opacity !== undefined) updates.opacity = args.opacity;
+        if (args.fontFamily !== undefined) updates.fontFamily = args.fontFamily;
 
         const success = editorStore.updateImageText(args.textId, updates);
 
@@ -512,6 +535,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
             endTime: l.endTime,
             position: l.position,
             fontSize: l.fontSize,
+            fontFamily: l.fontFamily || 'Inter',
           })),
           keyframesCount: (v.keyframes || []).length,
           animationSummary: (() => {
@@ -561,6 +585,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
             startTime: l.startTime,
             endTime: l.endTime,
             position: l.position,
+            fontFamily: l.fontFamily || 'Inter',
           })),
         };
       },
@@ -736,6 +761,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
             description: 'Semantic placement on frame',
           },
           fontSize: { type: 'number', description: 'Font size in px' },
+          fontFamily: WEBMCP_FONT_SCHEMA,
         },
         required: ['content', 'startTime', 'endTime'],
       },
@@ -748,6 +774,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         endTime: number;
         position?: SemanticPosition;
         fontSize?: number;
+        fontFamily?: string;
       }) => {
         ensureVideoMode();
         if (!args?.content || !args.content.trim()) {
@@ -757,12 +784,20 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
           return { success: false, error: 'startTime must be less than endTime' };
         }
 
+        if (args.fontFamily !== undefined && !isValidFont(args.fontFamily)) {
+          return {
+            success: false,
+            error: `Invalid font "${args.fontFamily}". Must be one of: ${CURATED_FONTS.join(', ')}`,
+          };
+        }
+
         const textId = editorStore.addVideoText({
           content: args.content.trim(),
           startTime: args.startTime,
           endTime: args.endTime,
           position: args.position || 'bottom-center',
           fontSize: args.fontSize || 42,
+          fontFamily: args.fontFamily,
         });
 
         editorStore.addAgentToast(
@@ -798,6 +833,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
           fontSize: { type: 'number' },
           startTime: { type: 'number' },
           endTime: { type: 'number' },
+          fontFamily: WEBMCP_FONT_SCHEMA,
         },
         required: ['textId'],
       },
@@ -811,10 +847,18 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         fontSize?: number;
         startTime?: number;
         endTime?: number;
+        fontFamily?: string;
       }) => {
         ensureVideoMode();
         if (!args?.textId) {
           return { success: false, error: 'textId is required' };
+        }
+
+        if (args.fontFamily !== undefined && !isValidFont(args.fontFamily)) {
+          return {
+            success: false,
+            error: `Invalid font "${args.fontFamily}". Must be one of: ${CURATED_FONTS.join(', ')}`,
+          };
         }
 
         const updates: Partial<Omit<VideoTextLayer, 'id'>> = {};
@@ -823,6 +867,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
         if (args.fontSize !== undefined) updates.fontSize = args.fontSize;
         if (args.startTime !== undefined) updates.startTime = args.startTime;
         if (args.endTime !== undefined) updates.endTime = args.endTime;
+        if (args.fontFamily !== undefined) updates.fontFamily = args.fontFamily;
 
         const success = editorStore.updateVideoText(args.textId, updates);
 
@@ -1249,7 +1294,7 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
     {
       name: 'export_video',
       description:
-        'Download the source video media. Note: In this hackathon prototype, full client-side video compositing/re-encoding (baking trims, 9:16 crop, speed changes, and text overlays into a new video file) is not implemented to ensure browser stability; all edits are active and visible in the live preview and timeline.',
+        'Render and export the current AgentCut video project (prefers QuickTime-compatible MP4 when supported by the browser MediaRecorder, falling back to WebM). The rendered export bakes in all active trims, aspect ratio crop, video keyframe motion/zoom, and timed animated text layers. The resulting video file is downloaded and structured metadata is returned.',
       inputSchema: {
         type: 'object',
         properties: {},
@@ -1257,15 +1302,27 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
       annotations: {
         readOnlyHint: false,
       },
-      execute: () => {
+      execute: async () => {
         ensureVideoMode();
         const v = editorStore.getState().video;
         if (!v.source) {
           return { success: false, error: 'No video loaded to export' };
         }
 
+        const exportRes = await exportVideoComposition(v, {
+          triggerDownload: true,
+        });
+
+        if (!exportRes.success) {
+          return {
+            success: false,
+            error: exportRes.error || 'Video composition export failed',
+          };
+        }
+
+        const formatLabel = exportRes.format === 'mp4' ? 'MP4' : 'WebM';
         editorStore.addAgentToast(
-          'Downloaded source video (edits active in preview/timeline)',
+          `Exported edited video as ${formatLabel}`,
           'export_video',
           'video'
         );
@@ -1274,20 +1331,16 @@ export function getAgentCutToolDefinitions(): WebMCPToolDefinition[] {
           success: true,
           mode: 'video',
           action: 'export_video',
-          downloaded: 'source_media',
-          renderedOutput: false,
-          status: 'downloaded_source',
-          message:
-            'Source video asset was downloaded. Full client-side video re-encoding (trims, 9:16 crop, speed, and text overlays) was scoped out for hackathon stability; project edits remain live in the interactive preview and timeline.',
-          projectState: {
-            aspectRatio: v.aspectRatio,
-            playbackRate: v.playbackRate,
-            trim: v.trim,
-            textLayersCount: v.textLayers.length,
-            effectiveDuration: Number(
-              ((v.trim.end - v.trim.start) / v.playbackRate).toFixed(2)
-            ),
-          },
+          format: exportRes.format,
+          mimeType: exportRes.mimeType,
+          fileName: exportRes.fileName,
+          renderedOutput: true,
+          includesEdits: true,
+          audioIncluded: exportRes.audioIncluded,
+          duration: exportRes.duration,
+          resolution: `${exportRes.dimensions.width}x${exportRes.dimensions.height}`,
+          keyframesCount: (v.keyframes || []).length,
+          textLayersCount: v.textLayers.length,
         };
       },
     },

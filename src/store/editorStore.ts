@@ -70,7 +70,7 @@ const initialVideoSnapshot: VideoSnapshot = {
 
 function createInitialState(): EditorState {
   return {
-    mode: 'image',
+    mode: 'video',
     image: {
       id: 'image-project-1',
       source: null,
@@ -103,7 +103,7 @@ export function getImageSnapshot(image: ImageProject): ImageSnapshot {
     canvas: { ...image.canvas },
     transform: { ...image.transform },
     adjustments: { ...image.adjustments },
-    textLayers: image.textLayers.map((l) => ({ ...l })),
+    textLayers: image.textLayers.map((l) => ({ ...l, fontFamily: l.fontFamily || 'Inter' })),
   };
 }
 
@@ -115,7 +115,7 @@ export function getVideoSnapshot(video: VideoProject): VideoSnapshot {
     playbackRate: video.playbackRate,
     volume: video.volume,
     muted: video.muted,
-    textLayers: video.textLayers.map((l) => ({ ...l })),
+    textLayers: video.textLayers.map((l) => ({ ...l, fontFamily: l.fontFamily || 'Inter' })),
     keyframes: (video.keyframes || []).map((k) => ({
       ...k,
       properties: { ...k.properties },
@@ -338,6 +338,7 @@ export const editorStore = {
     fontSize?: number;
     color?: string;
     fontWeight?: 'normal' | 'bold' | '600' | '700';
+    fontFamily?: string;
     opacity?: number;
     x?: number;
     y?: number;
@@ -356,6 +357,7 @@ export const editorStore = {
       y: params.y !== undefined ? params.y : coords.y,
       fontSize: params.fontSize || 48,
       fontWeight: params.fontWeight || 'bold',
+      fontFamily: params.fontFamily || 'Inter',
       alignment: coords.alignment,
       opacity: params.opacity !== undefined ? params.opacity : 1,
       color: params.color || '#ffffff',
@@ -380,16 +382,20 @@ export const editorStore = {
     const exists = state.image.textLayers.find((l) => l.id === textId);
     if (!exists) return false;
 
-    if (recordHistory) {
-      editorStore.recordImageHistory('update_image_text', `Updated text layer "${exists.content}"`);
-    }
-
     // Filter out undefined values to prevent overwriting existing properties
     const cleanUpdates: Partial<Omit<TextLayer, 'id'>> & { position?: SemanticPosition } = {};
     for (const key of Object.keys(updates) as (keyof typeof updates)[]) {
       if (updates[key] !== undefined) {
         (cleanUpdates as any)[key] = updates[key];
       }
+    }
+
+    if (recordHistory) {
+      const isOnlyFontChange = cleanUpdates.fontFamily !== undefined && Object.keys(cleanUpdates).length === 1;
+      const historyLabel = isOnlyFontChange
+        ? `Changed text font to ${cleanUpdates.fontFamily}`
+        : `Updated text layer "${exists.content}"`;
+      editorStore.recordImageHistory('update_image_text', historyLabel);
     }
 
     let x = cleanUpdates.x;
@@ -637,6 +643,8 @@ export const editorStore = {
     position?: SemanticPosition;
     fontSize?: number;
     color?: string;
+    fontWeight?: 'normal' | 'bold' | '600' | '700';
+    fontFamily?: string;
     opacity?: number;
   }): string {
     const textId = `video-text-${videoTextCounter++}`;
@@ -654,7 +662,8 @@ export const editorStore = {
       x: coords.x,
       y: coords.y,
       fontSize: params.fontSize || 42,
-      fontWeight: 'bold',
+      fontWeight: params.fontWeight || 'bold',
+      fontFamily: params.fontFamily || 'Inter',
       opacity: params.opacity !== undefined ? params.opacity : 1,
       color: params.color || '#ffffff',
     };
@@ -677,8 +686,6 @@ export const editorStore = {
     const exists = state.video.textLayers.find((l) => l.id === textId);
     if (!exists) return false;
 
-    editorStore.recordVideoHistory('update_video_text', `Updated text layer "${exists.content}"`);
-
     // Filter out undefined values to prevent overwriting existing properties
     const cleanUpdates: Partial<Omit<VideoTextLayer, 'id'>> = {};
     for (const key of Object.keys(updates) as (keyof typeof updates)[]) {
@@ -686,6 +693,12 @@ export const editorStore = {
         (cleanUpdates as any)[key] = updates[key];
       }
     }
+
+    const isOnlyFontChange = cleanUpdates.fontFamily !== undefined && Object.keys(cleanUpdates).length === 1;
+    const historyLabel = isOnlyFontChange
+      ? `Changed text font to ${cleanUpdates.fontFamily}`
+      : `Updated text layer "${exists.content}"`;
+    editorStore.recordVideoHistory('update_video_text', historyLabel);
 
     let x = cleanUpdates.x;
     let y = cleanUpdates.y;
@@ -1107,6 +1120,11 @@ export const editorStore = {
         isPlaying: false,
       },
     };
+    notify();
+  },
+
+  resetAll(): void {
+    state = createInitialState();
     notify();
   },
 };

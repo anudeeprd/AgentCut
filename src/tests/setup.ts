@@ -9,6 +9,8 @@ if (typeof window !== 'undefined') {
   window.HTMLCanvasElement.prototype.getContext = () =>
     ({
       drawImage: () => {},
+      clearRect: () => {},
+      fillRect: () => {},
       filter: '',
       save: () => {},
       restore: () => {},
@@ -51,4 +53,83 @@ if (typeof window !== 'undefined') {
       return this._src;
     },
   });
+
+  // Polyfill MediaRecorder & Canvas.captureStream for jsdom testing
+  if (!(window.HTMLCanvasElement.prototype as any).captureStream) {
+    (window.HTMLCanvasElement.prototype as any).captureStream = () => ({
+      getVideoTracks: () => [{ stop: () => {} }],
+      getAudioTracks: () => [{ stop: () => {} }],
+      getTracks: () => [{ stop: () => {} }],
+    });
+  }
+
+  if (typeof (window as any).MediaRecorder === 'undefined') {
+    (window as any).MediaRecorder = class MockMediaRecorder {
+      static isTypeSupported(type: string) {
+        return type.startsWith('video/webm');
+      }
+      mimeType: string = 'video/webm';
+      ondataavailable: ((e: any) => void) | null = null;
+      onstop: (() => void) | null = null;
+      onerror: ((e: any) => void) | null = null;
+      state: string = 'inactive';
+
+      constructor(_stream?: any, options?: any) {
+        if (options && options.mimeType) {
+          this.mimeType = options.mimeType;
+        }
+      }
+
+      start() {
+        this.state = 'recording';
+      }
+      stop() {
+        this.state = 'inactive';
+        if (this.ondataavailable) {
+          this.ondataavailable({
+            data: new Blob(['mock-video-bytes'], { type: this.mimeType }),
+          });
+        }
+        if (this.onstop) {
+          this.onstop();
+        }
+      }
+    };
+  }
+
+  if (typeof (window as any).MediaStream === 'undefined') {
+    (window as any).MediaStream = class MockMediaStream {
+      tracks: any[] = [];
+      constructor(tracks: any[] = []) {
+        this.tracks = tracks;
+      }
+      getTracks() {
+        return this.tracks;
+      }
+      getVideoTracks() {
+        return this.tracks;
+      }
+      getAudioTracks() {
+        return [];
+      }
+    };
+  }
+
+  // Polyfill URL.createObjectURL & URL.revokeObjectURL for jsdom
+  if (typeof URL.createObjectURL === 'undefined') {
+    URL.createObjectURL = () => 'blob:mock-url';
+  }
+  if (typeof URL.revokeObjectURL === 'undefined') {
+    URL.revokeObjectURL = () => {};
+  }
+
+  // Polyfill document.fonts for jsdom
+  if (typeof (document as any).fonts === 'undefined') {
+    (document as any).fonts = {
+      load: async (_font: string) => Promise.resolve([]),
+      check: (_font: string) => true,
+      ready: Promise.resolve(),
+    };
+  }
 }
+

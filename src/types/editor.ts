@@ -31,11 +31,14 @@ export interface TextLayer {
   position?: SemanticPosition;
   fontSize: number; // px
   fontWeight: 'normal' | 'bold' | '600' | '700';
+  fontFamily?: string;
   alignment: 'left' | 'center' | 'right';
   opacity: number; // 0 to 1
   color: string; // hex
   backgroundColor?: string;
 }
+
+export type ImageTextLayer = TextLayer;
 
 export interface ImageSource {
   fileName: string;
@@ -82,6 +85,7 @@ export interface VideoTextLayer {
   y: number; // 0 to 100 (%)
   fontSize: number;
   fontWeight: 'normal' | 'bold' | '600' | '700';
+  fontFamily?: string;
   opacity: number;
   color: string;
 }

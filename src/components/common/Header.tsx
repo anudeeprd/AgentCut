@@ -1,13 +1,10 @@
 import React from 'react';
 import { 
-  Scissors, 
-  Image as ImageIcon, 
-  Video as VideoIcon, 
   Undo2, 
   Redo2, 
-  HelpCircle, 
-  Download,
-  RotateCcw
+  Download, 
+  ChevronDown,
+  HelpCircle,
 } from 'lucide-react';
 import { useEditorStore } from '../../store/useEditorStore';
 import { editorStore } from '../../store/editorStore';
@@ -16,9 +13,17 @@ interface HeaderProps {
   onOpenAbout: () => void;
   onExport: () => void;
   isExporting?: boolean;
+  exportProgress?: number;
+  onDownloadOriginal?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenAbout, onExport, isExporting }) => {
+export const Header: React.FC<HeaderProps> = ({
+  onOpenAbout,
+  onExport,
+  isExporting,
+  exportProgress = 0,
+  onDownloadOriginal,
+}) => {
   const { mode, image, video } = useEditorStore();
 
   const canUndo = mode === 'image' ? image.history.length > 0 : video.history.length > 0;
@@ -40,125 +45,120 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAbout, onExport, isExporti
     }
   };
 
-  const handleReset = () => {
-    if (mode === 'image') {
-      editorStore.resetImage();
-    } else {
-      editorStore.resetVideo();
-    }
-  };
-
   const hasMedia = mode === 'image' ? !!image.source : !!video.source;
 
   return (
-    <header className="h-14 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md px-4 flex items-center justify-between z-20 select-none">
-      {/* Brand */}
+    <header className="h-14 border-b border-[#E8E5DD] bg-white px-5 flex items-center justify-between z-30 select-none shadow-subtle shrink-0">
+      {/* Left: Brand & WebMCP Badge */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
-            <Scissors className="w-4 h-4" />
+          {/* Yellow Folded Logo Mark */}
+          <div className="w-7 h-7 rounded-lg bg-[#F6C344] flex items-center justify-center shadow-xs">
+            <svg className="w-4 h-4 text-zinc-900" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2L2 19.5h5.5l4.5-8 4.5 8H22L12 2z" />
+            </svg>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm tracking-tight text-white">AgentCut</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700/60 text-zinc-300 font-mono">
-                WebMCP
-              </span>
-            </div>
-            <p className="text-[10px] text-zinc-400 hidden sm:block">Creative editing, agent-ready</p>
-          </div>
+          <span className="font-bold text-base tracking-tight text-[#171717]">
+            AgentCut
+          </span>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#FFF5D6] border border-[#F6C344]/50 text-[#8C6200] font-semibold">
+            WebMCP
+          </span>
         </div>
       </div>
 
-      {/* Mode Switcher */}
-      <div className="flex items-center bg-zinc-900/90 p-0.5 rounded-lg border border-zinc-800">
-        <button
-          onClick={() => editorStore.setMode('image')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-            mode === 'image'
-              ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700/60'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-          }`}
-        >
-          <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Image</span>
-        </button>
-        <button
-          onClick={() => editorStore.setMode('video')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-            mode === 'video'
-              ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700/60'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-          }`}
-        >
-          <VideoIcon className="w-3.5 h-3.5 text-purple-400" />
-          <span>Video</span>
-        </button>
-      </div>
+      {/* Center: Mode Segmented Switch + Undo / Redo */}
+      <div className="flex items-center gap-3">
+        {/* Mode Toggle */}
+        <div className="flex items-center bg-[#F3F1EB] p-1 rounded-xl border border-[#E8E5DD]">
+          <button
+            onClick={() => editorStore.setMode('image')}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+              mode === 'image'
+                ? 'bg-white text-[#171717] shadow-xs'
+                : 'text-[#6B6B66] hover:text-[#171717]'
+            }`}
+          >
+            Image
+          </button>
+          <button
+            onClick={() => editorStore.setMode('video')}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+              mode === 'video'
+                ? 'bg-white text-[#D99B00] shadow-xs'
+                : 'text-[#6B6B66] hover:text-[#171717]'
+            }`}
+          >
+            Video
+          </button>
+        </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-2">
-        {/* Undo / Redo */}
-        <div className="flex items-center bg-zinc-900/80 rounded-md border border-zinc-800/80 p-0.5">
+        {/* Undo / Redo Actions */}
+        <div className="flex items-center gap-0.5">
           <button
             onClick={handleUndo}
             disabled={!canUndo}
             title={`Undo ${mode} edit (Cmd+Z)`}
-            className="p-1.5 rounded text-zinc-400 hover:text-zinc-100 disabled:opacity-30 disabled:hover:text-zinc-400 transition-colors"
+            className="p-1.5 rounded-lg text-[#6B6B66] hover:text-[#171717] hover:bg-[#F7F6F2] disabled:opacity-30 transition-colors"
           >
-            <Undo2 className="w-3.5 h-3.5" />
+            <Undo2 className="w-4 h-4" />
           </button>
           <button
             onClick={handleRedo}
             disabled={!canRedo}
             title={`Redo ${mode} edit (Cmd+Shift+Z)`}
-            className="p-1.5 rounded text-zinc-400 hover:text-zinc-100 disabled:opacity-30 disabled:hover:text-zinc-400 transition-colors"
+            className="p-1.5 rounded-lg text-[#6B6B66] hover:text-[#171717] hover:bg-[#F7F6F2] disabled:opacity-30 transition-colors"
           >
-            <Redo2 className="w-3.5 h-3.5" />
+            <Redo2 className="w-4 h-4" />
           </button>
-          {hasMedia && (
-            <button
-              onClick={handleReset}
-              title={`Reset ${mode} project`}
-              className="p-1.5 rounded text-zinc-400 hover:text-zinc-100 transition-colors border-l border-zinc-800 ml-0.5"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-          )}
         </div>
+      </div>
 
-        {/* About Demo */}
+      {/* Right: About Demo, Download Original, Export CTA */}
+      <div className="flex items-center gap-2.5">
+        {/* About Demo Button */}
         <button
           onClick={onOpenAbout}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-700 bg-white hover:bg-[#FAF9F5] border border-[#E8E5DD] shadow-subtle transition-colors"
         >
-          <HelpCircle className="w-3.5 h-3.5 text-zinc-400" />
-          <span className="hidden md:inline">About Demo</span>
+          <HelpCircle className="w-3.5 h-3.5 text-zinc-500" />
+          <span>About Demo</span>
         </button>
 
-        {/* Export Button */}
+        {/* Secondary Download Original (video mode only) */}
+        {mode === 'video' && hasMedia && onDownloadOriginal && (
+          <button
+            onClick={onDownloadOriginal}
+            disabled={isExporting}
+            title="Download original unedited source video file"
+            className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium text-zinc-700 bg-white hover:bg-[#FAF9F5] border border-[#E8E5DD] shadow-subtle disabled:opacity-40 transition-colors"
+          >
+            <span>Download Original</span>
+          </button>
+        )}
+
+        {/* Primary Yellow Export Button */}
         <button
           onClick={onExport}
           disabled={!hasMedia || isExporting}
           title={
             mode === 'image'
               ? 'Export edited image with all adjustments, crops, and text layers'
-              : 'Download source video (prototype note: edits are preview-only)'
+              : 'Export rendered video composition (MP4/WebM) with trims, crops, keyframe motion, and text overlays'
           }
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white transition-all shadow-sm ${
-            mode === 'image'
-              ? 'bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40'
-              : 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 disabled:opacity-40'
-          }`}
+          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold text-zinc-900 bg-[#F6C344] hover:bg-[#E9B332] active:bg-[#D99B00] shadow-subtle disabled:opacity-40 transition-all cursor-pointer"
         >
           <Download className="w-3.5 h-3.5" />
           <span>
             {mode === 'image'
               ? isExporting
                 ? 'Exporting...'
-                : 'Export PNG'
-              : 'Download Source'}
+                : 'Export'
+              : isExporting
+              ? `Rendering… ${exportProgress}%`
+              : 'Export'}
           </span>
+          <ChevronDown className="w-3 h-3 opacity-70" />
         </button>
       </div>
     </header>

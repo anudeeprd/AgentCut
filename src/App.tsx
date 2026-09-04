@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Header } from './components/common/Header';
-import { StartScreen } from './components/common/StartScreen';
+import { LeftToolRail } from './components/common/LeftToolRail';
 import { ToastContainer } from './components/common/ToastContainer';
 import { AboutDemoModal } from './components/common/AboutDemoModal';
 import { ImageCanvas } from './components/image/ImageCanvas';
@@ -12,12 +12,14 @@ import { useEditorStore } from './store/useEditorStore';
 import { editorStore } from './store/editorStore';
 import { registerAgentCutTools } from './webmcp/registerTools';
 import { exportImageCanvas } from './services/imageExport';
+import { exportVideoComposition } from './services/videoExport';
 
 export const App: React.FC = () => {
   const { mode, image, video } = useEditorStore();
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
 
   // WebMCP Registration with AbortController for StrictMode safety
   useEffect(() => {
@@ -93,71 +95,113 @@ export const App: React.FC = () => {
       }
     } else {
       if (!video.source) return;
-      const v = editorStore.getState().video;
+      setIsExporting(true);
+      setExportProgress(0);
       try {
-        if (!v.source) return;
-        const a = document.createElement('a');
-        a.href = v.source.objectUrl;
-        a.download = `agentcut-source-${Date.now()}.mp4`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        editorStore.addAgentToast(
-          'Downloaded source video (prototype: edits remain live in preview/timeline)',
-          'export_video',
-          'video'
-        );
+        const v = editorStore.getState().video;
+        const result = await exportVideoComposition(v, {
+          triggerDownload: true,
+          onProgress: (p) => setExportProgress(p),
+        });
+
+        if (result.success) {
+          const formatLabel = result.format === 'mp4' ? 'MP4' : 'WebM';
+          editorStore.addAgentToast(
+            `Exported edited video as ${formatLabel}`,
+            'export_video',
+            'video'
+          );
+        } else {
+          editorStore.addAgentToast('Video export failed', 'export_video', 'video');
+          alert(`Video export failed: ${result.error}`);
+        }
       } catch (err: any) {
-        alert(`Video download notice: ${err?.message}`);
+        editorStore.addAgentToast('Video export failed', 'export_video', 'video');
+        alert(`Video export failed: ${err?.message}`);
+      } finally {
+        setIsExporting(false);
+        setExportProgress(0);
       }
     }
   };
 
-  const hasImage = !!image.source;
-  const hasVideo = !!video.source;
-  const hasCurrentMedia = mode === 'image' ? hasImage : hasVideo;
+  const handleDownloadOriginal = () => {
+    const v = editorStore.getState().video;
+    if (!v.source) return;
+    try {
+      const a = document.createElement('a');
+      a.href = v.source.objectUrl;
+      a.download = `agentcut-source-${Date.now()}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      editorStore.addAgentToast(
+        'Downloaded original source video',
+        'export_video',
+        'video'
+      );
+    } catch (err: any) {
+      alert(`Download notice: ${err?.message}`);
+    }
+  };
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#09090b] text-zinc-100 overflow-hidden font-sans">
+    <div className="h-screen w-screen flex flex-col bg-[#FAF9F5] text-[#171717] overflow-hidden font-sans select-none">
       {/* Top Header Navigation */}
       <Header
         onOpenAbout={() => setIsAboutOpen(true)}
         onExport={handleExport}
         isExporting={isExporting}
+        exportProgress={exportProgress}
+        onDownloadOriginal={handleDownloadOriginal}
       />
 
       {/* Main Workspace Area */}
       <main className="flex-1 flex overflow-hidden relative">
-        {!hasCurrentMedia ? (
-          <StartScreen />
-        ) : mode === 'image' ? (
-          <div className="flex-1 flex overflow-hidden">
-            <ImageCanvas
-              selectedTextId={selectedTextId}
-              onSelectTextId={setSelectedTextId}
-            />
-            <ImageProperties
-              selectedTextId={selectedTextId}
-              onSelectTextId={setSelectedTextId}
-            />
-          </div>
-        ) : (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 flex overflow-hidden">
+        {/* Left Vertical Tool Rail & Expandable Panels */}
+        <LeftToolRail
+          selectedTextId={selectedTextId}
+          onSelectTextId={setSelectedTextId}
+          onOpenAbout={() => setIsAboutOpen(true)}
+        />
+
+        {/* Center Canvas Area + Bottom Timeline in Video Mode */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-[#F7F6F2]">
+          {/* Center Canvas / Video Viewport */}
+          <div className="flex-1 flex overflow-hidden relative">
+            {mode === 'image' ? (
+              <ImageCanvas
+                selectedTextId={selectedTextId}
+                onSelectTextId={setSelectedTextId}
+              />
+            ) : (
               <VideoPreview
                 selectedTextId={selectedTextId}
                 onSelectTextId={setSelectedTextId}
               />
-              <VideoProperties
-                selectedTextId={selectedTextId}
-                onSelectTextId={setSelectedTextId}
-              />
-            </div>
+            )}
+          </div>
+
+          {/* Bottom Video Timeline (always visible in video mode) */}
+          {mode === 'video' && (
             <VideoTimeline
               selectedTextId={selectedTextId}
               onSelectTextId={setSelectedTextId}
             />
-          </div>
+          )}
+        </div>
+
+        {/* Right Contextual Inspector */}
+        {mode === 'image' ? (
+          <ImageProperties
+            selectedTextId={selectedTextId}
+            onSelectTextId={setSelectedTextId}
+          />
+        ) : (
+          <VideoProperties
+            selectedTextId={selectedTextId}
+            onSelectTextId={setSelectedTextId}
+          />
         )}
       </main>
 

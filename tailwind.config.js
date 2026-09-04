@@ -7,22 +7,39 @@ export default {
   theme: {
     extend: {
       colors: {
+        editor: {
+          bg: '#FAF9F5',
+          workspace: '#F7F6F2',
+          panel: '#FFFFFF',
+          text: '#171717',
+          muted: '#6B6B66',
+          border: '#E8E5DD',
+          separator: '#F0EEE8',
+          subtle: '#F4F2EC',
+        },
+        accent: {
+          yellow: '#F6C344',
+          strong: '#F2B705',
+          soft: '#FFF5D6',
+          hover: '#E9B332',
+          border: '#E5A800',
+        },
         brand: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
+          50: '#fffbeb',
+          100: '#fef3c7',
+          400: '#fbbf24',
+          500: '#f59e0b',
+          600: '#d97706',
+          700: '#b45309',
         },
         surface: {
-          base: '#09090b',      // zinc-950
-          panel: '#121215',     // slightly lighter
-          card: '#18181b',      // zinc-900
-          border: '#27272a',    // zinc-800
-          borderHover: '#3f3f46',
-          muted: '#71717a',
-          accent: '#6366f1',
+          base: '#FAF9F5',
+          panel: '#FFFFFF',
+          card: '#FFFFFF',
+          border: '#E8E5DD',
+          borderHover: '#D4D0C8',
+          muted: '#6B6B66',
+          accent: '#F6C344',
         }
       },
       fontFamily: {
@@ -30,8 +47,9 @@ export default {
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       boxShadow: {
-        'subtle': '0 1px 2px 0 rgba(0, 0, 0, 0.4)',
-        'panel': '0 4px 20px -2px rgba(0, 0, 0, 0.5)',
+        'subtle': '0 1px 2px 0 rgba(0, 0, 0, 0.04)',
+        'panel': '0 2px 8px -2px rgba(0, 0, 0, 0.06)',
+        'card': '0 4px 16px -4px rgba(0, 0, 0, 0.06)',
       }
     },
   },

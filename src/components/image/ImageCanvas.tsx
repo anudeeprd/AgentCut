@@ -14,8 +14,10 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
 }) => {
   const project = useImageProject();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [initialDragSnapshot, setInitialDragSnapshot] = useState<ImageSnapshot | null>(null);
+  const [, setInitialDragSnapshot] = useState<ImageSnapshot | null>(null);
   const [displayedCanvasHeight, setDisplayedCanvasHeight] = useState<number>(0);
 
   // Measure actual displayed canvas/frame height using containerRef and ResizeObserver
@@ -51,27 +53,89 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
     }
   }, [project.canvas.aspectRatio, project.source]);
 
-  if (!project.source) return null;
-
   // Aspect ratio styling
   const getAspectRatioStyle = () => {
     switch (project.canvas.aspectRatio) {
       case '1:1':
-        return 'aspect-square max-h-[70vh]';
+        return 'aspect-square max-h-[72vh]';
       case '4:5':
-        return 'aspect-[4/5] max-h-[72vh]';
+        return 'aspect-[4/5] max-h-[74vh]';
       case '16:9':
-        return 'aspect-[16/9] max-h-[65vh]';
+        return 'aspect-[16/9] max-h-[66vh]';
       case '9:16':
-        return 'aspect-[9/16] max-h-[75vh]';
+        return 'aspect-[9/16] max-h-[76vh]';
       case 'original':
       default: {
         const source = project.source;
         const ar = source ? source.width / source.height : 16 / 9;
-        return ar >= 1 ? 'aspect-video max-h-[68vh]' : 'aspect-[9/16] max-h-[75vh]';
+        return ar >= 1 ? 'aspect-video max-h-[70vh]' : 'aspect-[9/16] max-h-[76vh]';
       }
     }
   };
+
+  const handleImageFile = (file: File) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      editorStore.setMode('image');
+      editorStore.loadImage({
+        fileName: file.name,
+        width: img.naturalWidth || 1920,
+        height: img.naturalHeight || 1080,
+        objectUrl: url,
+      });
+    };
+    img.src = url;
+  };
+
+  const handleVideoFile = (file: File) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      editorStore.setMode('video');
+      editorStore.loadVideo({
+        fileName: file.name,
+        duration: video.duration || 10,
+        width: video.videoWidth || 1280,
+        height: video.videoHeight || 720,
+        objectUrl: url,
+      });
+    };
+    video.src = url;
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+
+    if (file.type.startsWith('image/')) {
+      handleImageFile(file);
+    } else if (file.type.startsWith('video/')) {
+      handleVideoFile(file);
+    }
+  };
+
+  // ----------------- CLEAN EMPTY ARTBOARD STATE ----------------- //
+  if (!project.source) {
+    return (
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        className={`flex-1 bg-[#F7F6F2] flex items-center justify-center p-6 overflow-hidden relative select-none ${
+          isDragging ? 'ring-2 ring-inset ring-[#F2B705] bg-[#FFF5D6]/20' : ''
+        }`}
+      />
+    );
+  }
+
+  // ----------------- LOADED IMAGE CANVAS ----------------- //
 
   // CSS Filter string
   const adj = project.adjustments;
@@ -95,62 +159,42 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
     const rect = containerRef.current.getBoundingClientRect();
     const x = Math.max(5, Math.min(95, ((e.clientX - rect.left) / rect.width) * 100));
     const y = Math.max(5, Math.min(95, ((e.clientY - rect.top) / rect.height) * 100));
-    // During drag, update coordinates without creating a history snapshot on every mouse move
     editorStore.updateImageText(draggingId, { x, y }, false);
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (draggingId) {
-      if (initialDragSnapshot) {
-        const initialLayer = initialDragSnapshot.textLayers.find((l) => l.id === draggingId);
-        const currentLayer = editorStore.getState().image.textLayers.find((l) => l.id === draggingId);
-
-        // Only record history if the layer was actually moved (distance > 0.5%)
-        if (
-          initialLayer &&
-          currentLayer &&
-          (Math.abs(currentLayer.x - initialLayer.x) > 0.5 ||
-            Math.abs(currentLayer.y - initialLayer.y) > 0.5)
-        ) {
-          editorStore.recordImageHistoryWithSnapshot(
-            initialDragSnapshot,
-            'move_image_text',
-            `Moved text "${currentLayer.content}"`
-          );
-        }
-      }
-      setDraggingId(null);
-      setInitialDragSnapshot(null);
-      try {
-        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-      } catch {
-        // pointer capture release ignore
-      }
+    if (!draggingId) return;
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
     }
+    setDraggingId(null);
+    setInitialDragSnapshot(null);
   };
 
   return (
     <div
       onClick={() => onSelectTextId(null)}
-      className="flex-1 bg-zinc-950/60 flex items-center justify-center p-6 overflow-hidden relative select-none"
+      className="flex-1 bg-[#F7F6F2] flex items-center justify-center p-6 overflow-hidden relative select-none"
     >
-      {/* Canvas Frame Container */}
+      {/* Canvas Viewport Frame */}
       <div
         ref={containerRef}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className={`relative transition-all duration-300 rounded-xl overflow-hidden shadow-2xl border border-zinc-800/80 bg-zinc-900 ${getAspectRatioStyle()}`}
+        className={`relative transition-all duration-200 rounded-2xl overflow-hidden shadow-card border border-[#E8E5DD] bg-white flex items-center justify-center ${getAspectRatioStyle()}`}
         style={{
           width: 'auto',
           height: 'auto',
           maxWidth: '100%',
         }}
       >
-        {/* Background Image with transforms and filters */}
+        {/* Rendered Source Image with Crop & Filters */}
         <img
           src={project.source.objectUrl}
           alt={project.source.fileName}
-          className="w-full h-full object-cover transition-transform duration-200 pointer-events-none"
+          className="w-full h-full object-cover transition-all duration-100 pointer-events-none"
           style={{
             filter: filterStyle,
             transform: transformStyle,
@@ -185,8 +229,8 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
                 onPointerDown={(e) => handlePointerDown(e, layer.id)}
                 className={`absolute cursor-move transition-shadow duration-150 rounded select-none ${translateClass} ${
                   isSelected
-                    ? 'ring-2 ring-indigo-500 bg-indigo-500/20 backdrop-blur-sm'
-                    : 'hover:ring-1 hover:ring-zinc-400/60'
+                    ? 'ring-2 ring-[#F2B705] bg-[#FFF5D6]/40 backdrop-blur-xs'
+                    : 'hover:ring-1 hover:ring-zinc-400/80'
                 }`}
                 style={{
                   left: `${layer.x}%`,
@@ -199,7 +243,7 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
                   style={{
                     fontSize: `${displayFontSize}px`,
                     fontWeight: layer.fontWeight,
-                    fontFamily: 'Inter, -apple-system, sans-serif',
+                    fontFamily: `"${layer.fontFamily || 'Inter'}", -apple-system, sans-serif`,
                     color: layer.color || '#ffffff',
                     textShadow: `0 ${shadowOffset}px ${shadowBlur}px rgba(0,0,0,0.8), 0 0 ${Math.max(1, 2 * previewScale)}px rgba(0,0,0,0.9)`,
                   }}
@@ -213,7 +257,7 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
         })()}
 
         {/* Aspect Ratio Badge Overlay */}
-        <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-mono text-zinc-300 pointer-events-none">
+        <div className="absolute top-3 left-3 px-2 py-0.5 rounded-lg bg-white/90 backdrop-blur-md border border-[#E8E5DD] text-[10px] font-mono text-[#171717] font-semibold pointer-events-none shadow-xs">
           {project.canvas.aspectRatio.toUpperCase()} · {project.canvas.width}×{project.canvas.height}
         </div>
       </div>

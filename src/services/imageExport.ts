@@ -28,7 +28,7 @@ export async function exportImageCanvas(
     const img = new Image();
     img.crossOrigin = 'anonymous';
 
-    img.onload = () => {
+    img.onload = async () => {
       try {
         const sourceW = img.naturalWidth || project.source!.width;
         const sourceH = img.naturalHeight || project.source!.height;
@@ -135,6 +135,25 @@ export async function exportImageCanvas(
         // Remove filter for drawing text layers
         ctx.filter = 'none';
 
+        // Preload fonts for text layers defensively
+        const fontMap = new Map<string, string>();
+        if (typeof document !== 'undefined' && document.fonts && typeof document.fonts.load === 'function') {
+          for (const layer of project.textLayers) {
+            const fontName = layer.fontFamily || 'Inter';
+            if (!fontMap.has(fontName)) {
+              try {
+                const exportScale = targetH / 1080;
+                const fontSize = Math.max(1, Math.round(layer.fontSize * exportScale));
+                await document.fonts.load(`${layer.fontWeight || 'normal'} ${fontSize}px "${fontName}"`);
+                fontMap.set(fontName, fontName);
+              } catch (err) {
+                console.warn(`[AgentCut Exporter] Font "${fontName}" failed to load, falling back to Inter`, err);
+                fontMap.set(fontName, 'Inter');
+              }
+            }
+          }
+        }
+
         // Draw text layers
         for (const layer of project.textLayers) {
           ctx.save();
@@ -143,7 +162,8 @@ export async function exportImageCanvas(
           // Scale font size proportionally from reference 1080p
           const exportScale = targetH / 1080;
           const fontSize = Math.max(1, Math.round(layer.fontSize * exportScale));
-          ctx.font = `${layer.fontWeight} ${fontSize}px Inter, -apple-system, sans-serif`;
+          const fontFamily = fontMap.get(layer.fontFamily || 'Inter') || layer.fontFamily || 'Inter';
+          ctx.font = `${layer.fontWeight || 'normal'} ${fontSize}px "${fontFamily}", -apple-system, sans-serif`;
           ctx.fillStyle = layer.color || '#ffffff';
           ctx.textAlign = layer.alignment;
           ctx.textBaseline = 'middle';

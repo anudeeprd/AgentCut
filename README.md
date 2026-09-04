@@ -81,7 +81,7 @@ AgentCut registers all tools imperatively using `document.modelContext.registerT
 ### Video Tools
 | Tool | Type | Description |
 | :--- | :--- | :--- |
-| `get_video_state` | Read-only | Returns duration, effective duration, aspect ratio, trim bounds, speed, volume, and text overlays. |
+| `get_video_state` | Read-only | Returns duration, effective duration, aspect ratio, trim bounds, speed, volume, text overlays, and keyframes count. |
 | `get_timeline` | Read-only | Returns compact chronological timeline with clip segments and playhead. |
 | `trim_video` | Mutation | Sets start and end timestamps (e.g. `startTime: 2, endTime: 10`). |
 | `set_video_aspect_ratio` | Mutation | Sets aspect ratio to 9:16, 16:9, 1:1, 4:5, or original. |
@@ -90,9 +90,15 @@ AgentCut registers all tools imperatively using `document.modelContext.registerT
 | `add_video_text` | Mutation | Adds timed text overlay active between `startTime` and `endTime`. |
 | `update_video_text` | Mutation | Updates text overlay content, timing, or position. |
 | `remove_video_text` | Mutation | Removes timed text layer by `textId`. |
+| `add_video_keyframe` | Mutation | Adds an animation keyframe for text or video frame (x, y, scale, opacity). |
+| `update_video_keyframe` | Mutation | Safely updates keyframe timestamp or properties with partial updates. |
+| `remove_video_keyframe` | Mutation | Removes an animation keyframe by `keyframeId`. |
+| `get_video_keyframes` | Read-only | Returns chronologically ordered animation keyframes with optional filtering. |
 | `split_video` | Mutation | Splits clip at timestamp into two segments. |
 | `delete_video_segment` | Mutation | Deletes a clip segment by ID. |
-| `export_video` | Mutation | Downloads source video asset (prototype note: edits remain live in preview/timeline). |
+| `undo_video_edit` | Mutation | Reverts the latest video editing action. |
+| `redo_video_edit` | Mutation | Re-applies the next edit from the redo stack. |
+| `export_video` | Mutation | Renders and exports the video composition with active edits (MP4 preferred when supported, fallback to WebM). |
 
 ---
 
@@ -102,8 +108,8 @@ In creative tools, honesty about rendered output versus preview state is paramou
 
 * **Image Export (Fully Functional Real Render)**:  
   Uses an offscreen HTML5 Canvas pipeline. When the human or agent clicks Export or calls `export_image`, the application renders the source image, applies exact aspect-ratio center-cropping, transforms (rotation, horizontal/vertical flips), color adjustments (brightness, contrast, saturation, grayscale, blur), and renders styled text layers with drop shadows. The resulting PNG or JPG file is generated on the client and directly downloaded.
-* **Video Export (Source Download Only)**:  
-  In this hackathon prototype, all video manipulations (trim in/out points, 9:16 vertical framing, 1.5× playback rate, timed text overlay visibility) operate in real-time within the HTMLVideoElement and interactive multi-track timeline. Full client-side video compositing and re-encoding into a newly rendered MP4 file was scoped out to ensure zero-crash browser reliability and fast execution during judge evaluation. `export_video` downloads the source video asset and returns structured metadata clearly disclosing this behavior.
+* **Video Export (Browser-Rendered MP4 / WebM Composition)**:  
+  Video export renders the current AgentCut composition directly in-browser. When the human or agent clicks Export Video or calls `export_video`, an offscreen Canvas and HTMLVideoElement pipeline renders the video frame with aspect-ratio cover-cropping, evaluates video pan/zoom keyframes, and draws animated timed text overlays using frame-accurate interpolation. The stream is recorded via browser `MediaRecorder`, automatically preferring QuickTime-compatible MP4 (`video/mp4;codecs=avc1.42E01E...`) when supported by the host browser, with seamless fallback to WebM (`video/webm`). An unedited source file download remains available via "Download Original".
 
 ---
 
